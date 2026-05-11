@@ -1,0 +1,114 @@
+[build-system]
+requires      = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "nayantra"
+version         = "1.0.0"
+description     = "Nayantra — LLM-powered autonomous robot navigation via Open-RMF and MCP"
+readme          = "README.md"
+license         = { file = "LICENSE" }
+requires-python = ">=3.11"
+keywords        = ["robotics", "openrmf", "llm", "mcp", "nav2", "isaac-sim", "ros2"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    "httpx>=0.28",
+    "anthropic>=0.40",
+    "openai>=1.57",
+    "PyJWT>=2.10",
+    "tenacity>=9.0",
+    "python-dotenv>=1.0",
+    "rich>=13.9",
+    "prometheus-client>=0.21",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "respx>=0.21",
+]
+zenoh = [
+    "eclipse-zenoh>=1.0",
+]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "nayantra[test]",
+]
+
+[project.scripts]
+nayantra              = "nayantra.agent.main:main"
+nayantra-api          = "nayantra.agent.api:main"
+nayantra-mcp-server   = "nayantra.mcp.server:main"
+nayantra-zenoh-bridge = "nayantra.zenoh_bridge.bridge:main"
+nayantra-token        = "scripts.generate_token:main"
+
+[project.urls]
+Homepage      = "https://github.com/shashankbr27/nayantra"
+Documentation = "https://github.com/shashankbr27/nayantra/tree/main/docs"
+Issues        = "https://github.com/shashankbr27/nayantra/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nayantra*", "scripts*"]
+
+# ---------------------------------------------------------------------------
+# Ruff linting + formatting
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "PTH"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+# ---------------------------------------------------------------------------
+# Mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+strict         = false
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths    = ["tests"]
+addopts      = "-v --tb=short"
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["nayantra"]
+omit   = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]

@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    fastapi==0.115.* \
+    "uvicorn[standard]==0.32.*"
+
+COPY docker/rmf_stub_server.py ./rmf_stub_server.py
+
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+
+CMD ["python", "rmf_stub_server.py"]

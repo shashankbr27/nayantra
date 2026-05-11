@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY pyproject.toml .
+RUN pip install --no-cache-dir \
+    fastapi uvicorn[standard] pydantic pydantic-settings \
+    httpx PyJWT tenacity python-dotenv
+
+COPY nayantra/ ./nayantra/
+COPY config/ ./config/
+
+EXPOSE 7000
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7000/health')"
+
+CMD ["python", "-m", "uvicorn", "nayantra.mcp.server:app", "--host", "0.0.0.0", "--port", "7000"]

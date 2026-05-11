@@ -1,0 +1,211 @@
+[
+  {
+    "name": "list_robots",
+    "description": "List all robots registered across all fleets.",
+    "parameters": {},
+    "api_endpoint": "GET /fleets"
+  },
+  {
+    "name": "get_robot_status",
+    "description": "Get the current status and pose of a specific robot.",
+    "parameters": {
+      "fleet_name": { "type": "string", "description": "Name of the fleet" },
+      "robot_name": { "type": "string", "description": "Name of the robot" }
+    },
+    "api_endpoint": "GET /fleets/{fleet_name}/robots/{robot_name}"
+  },
+  {
+    "name": "move_robot",
+    "description": "Command a robot to navigate to a named waypoint.",
+    "parameters": {
+      "fleet_name": { "type": "string", "description": "Fleet name" },
+      "robot_name": { "type": "string", "description": "Robot name" },
+      "waypoint":   { "type": "string", "description": "Named waypoint on the map" }
+    },
+    "api_endpoint": "POST /tasks/dispatch_task"
+  },
+  {
+    "name": "dispatch_task",
+    "description": "Dispatch a new task. Supports: navigate_to_waypoint, delivery, patrol, loop.",
+    "parameters": {
+      "category":    { "type": "string", "description": "Task category" },
+      "description": { "type": "object", "description": "Task payload" },
+      "fleet_name":  { "type": "string", "description": "Target fleet (optional)" },
+      "robot_name":  { "type": "string", "description": "Target robot (optional)" },
+      "priority":    { "type": "integer","description": "0-9, default 0" }
+    },
+    "api_endpoint": "POST /tasks/dispatch_task"
+  },
+  {
+    "name": "get_task_state",
+    "description": "Get the current state of a task by its ID.",
+    "parameters": {
+      "task_id": { "type": "string", "description": "Task ID" }
+    },
+    "api_endpoint": "GET /tasks/{task_id}/state"
+  },
+  {
+    "name": "list_tasks",
+    "description": "Query all active and completed tasks.",
+    "parameters": {},
+    "api_endpoint": "GET /tasks"
+  },
+  {
+    "name": "get_task_log",
+    "description": "Retrieve the detailed event log for a task.",
+    "parameters": {
+      "task_id": { "type": "string", "description": "Task ID" }
+    },
+    "api_endpoint": "GET /tasks/{task_id}/log"
+  },
+  {
+    "name": "cancel_task",
+    "description": "Cancel a pending or active task.",
+    "parameters": {
+      "task_id": { "type": "string", "description": "Task ID to cancel" }
+    },
+    "api_endpoint": "POST /tasks/cancel_task"
+  },
+  {
+    "name": "resume_task",
+    "description": "Resume a paused task.",
+    "parameters": {
+      "task_id": { "type": "string", "description": "Task ID to resume" }
+    },
+    "api_endpoint": "POST /tasks/resume_task"
+  },
+  {
+    "name": "stop_robot",
+    "description": "Immediately cancel all active tasks for a robot.",
+    "parameters": {
+      "task_id": { "type": "string", "description": "Task ID to cancel" }
+    },
+    "api_endpoint": "POST /tasks/cancel_task"
+  },
+  {
+    "name": "list_doors",
+    "description": "List all doors in the building.",
+    "parameters": {},
+    "api_endpoint": "GET /doors"
+  },
+  {
+    "name": "get_door_state",
+    "description": "Get the current open/closed state of a named door.",
+    "parameters": {
+      "door_name": { "type": "string", "description": "Door name" }
+    },
+    "api_endpoint": "GET /doors/{door_name}/state"
+  },
+  {
+    "name": "control_door",
+    "description": "Open or close a named door. mode: 0=closed, 2=open.",
+    "parameters": {
+      "door_name": { "type": "string",  "description": "Door name" },
+      "mode":      { "type": "integer", "description": "0=closed, 2=open" }
+    },
+    "api_endpoint": "POST /doors/{door_name}/request"
+  },
+  {
+    "name": "list_lifts",
+    "description": "List all lifts (elevators) in the building.",
+    "parameters": {},
+    "api_endpoint": "GET /lifts"
+  },
+  {
+    "name": "get_lift_state",
+    "description": "Get current floor and mode of a named lift.",
+    "parameters": {
+      "lift_name": { "type": "string", "description": "Lift name" }
+    },
+    "api_endpoint": "GET /lifts/{lift_name}/state"
+  },
+  {
+    "name": "request_lift",
+    "description": "Call a lift to a destination floor.",
+    "parameters": {
+      "lift_name":         { "type": "string",  "description": "Lift name" },
+      "destination_floor": { "type": "string",  "description": "Target floor label" },
+      "door_state":        { "type": "integer", "description": "0=closed, 2=open" }
+    },
+    "api_endpoint": "POST /lifts/{lift_name}/request"
+  },
+  {
+    "name": "list_alerts",
+    "description": "List all active alerts in the system.",
+    "parameters": {},
+    "api_endpoint": "GET /alerts"
+  },
+  {
+    "name": "get_alert",
+    "description": "Get details of a specific alert.",
+    "parameters": {
+      "alert_id": { "type": "string", "description": "Alert ID" }
+    },
+    "api_endpoint": "GET /alerts/{alert_id}"
+  },
+  {
+    "name": "respond_to_alert",
+    "description": "Acknowledge or respond to an alert.",
+    "parameters": {
+      "alert_id": { "type": "string", "description": "Alert ID" },
+      "response": { "type": "string", "description": "Response: acknowledge | resume | cancel" }
+    },
+    "api_endpoint": "POST /alerts/{alert_id}/response"
+  },
+  {
+    "name": "reset_fire_alarm",
+    "description": "Reset the fire alarm trigger after it has been addressed.",
+    "parameters": {},
+    "api_endpoint": "POST /fire_alarm_trigger/reset"
+  },
+  {
+    "name": "get_fire_alarm_state",
+    "description": "Check whether the fire alarm has been triggered.",
+    "parameters": {},
+    "api_endpoint": "GET /fire_alarm_trigger"
+  },
+  {
+    "name": "get_building_map",
+    "description": "Retrieve the building map including levels, waypoints, and lanes.",
+    "parameters": {},
+    "api_endpoint": "GET /building_map"
+  },
+  {
+    "name": "list_dispensers",
+    "description": "List all dispenser (payload drop-off) stations.",
+    "parameters": {},
+    "api_endpoint": "GET /dispensers"
+  },
+  {
+    "name": "list_ingestors",
+    "description": "List all ingestor (payload pick-up) stations.",
+    "parameters": {},
+    "api_endpoint": "GET /ingestors"
+  },
+  {
+    "name": "get_fleet_log",
+    "description": "Retrieve the event log for a named fleet.",
+    "parameters": {
+      "fleet_name": { "type": "string", "description": "Fleet name" }
+    },
+    "api_endpoint": "GET /fleets/{fleet_name}/log"
+  },
+  {
+    "name": "decommission_robot",
+    "description": "Remove a robot from active duty in its fleet.",
+    "parameters": {
+      "fleet_name": { "type": "string", "description": "Fleet name" },
+      "robot_name": { "type": "string", "description": "Robot name" }
+    },
+    "api_endpoint": "POST /fleets/{fleet_name}/decommission"
+  },
+  {
+    "name": "recommission_robot",
+    "description": "Return a decommissioned robot to active duty.",
+    "parameters": {
+      "fleet_name": { "type": "string", "description": "Fleet name" },
+      "robot_name": { "type": "string", "description": "Robot name" }
+    },
+    "api_endpoint": "POST /fleets/{fleet_name}/recommission"
+  }
+]

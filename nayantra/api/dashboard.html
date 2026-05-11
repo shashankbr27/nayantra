@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nayantra — Control Dashboard</title>
+  <style>
+    /* ── Design tokens ───────────────────────────────────────────── */
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #1f2937;
+      --border:    #30363d;
+      --accent:    #00e5ff;
+      --accent2:   #7c3aed;
+      --success:   #22c55e;
+      --warn:      #f59e0b;
+      --error:     #ef4444;
+      --text:      #e6edf3;
+      --muted:     #7d8590;
+      --font:      'Inter', system-ui, sans-serif;
+      --mono:      'JetBrains Mono', 'Fira Code', monospace;
+      --radius:    8px;
+      --glow:      0 0 20px rgba(0,229,255,.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      grid-template-columns: 260px 1fr 320px;
+      grid-template-areas:
+        "header header header"
+        "sidebar main   log";
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      grid-area: header;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+    }
+    header .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 16px; color: var(--accent);
+      letter-spacing: .5px;
+    }
+    header .logo svg { width: 28px; height: 28px; }
+    header .status-pill {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--muted);
+    }
+    header .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted);
+      transition: background .3s;
+    }
+    header .dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    header .dot.error     { background: var(--error); }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    aside {
+      grid-area: sidebar;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .section-label {
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted);
+      padding: 4px 0 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .robot-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 6px;
+      cursor: pointer;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .robot-card:hover { border-color: var(--accent); box-shadow: var(--glow); }
+    .robot-card.selected { border-color: var(--accent); box-shadow: var(--glow); }
+    .robot-card .r-name { font-weight: 600; font-size: 13px; }
+    .robot-card .r-meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; }
+    .badge {
+      display: inline-block; padding: 2px 7px;
+      border-radius: 99px; font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .badge-idle     { background: rgba(124,58,237,.2); color: var(--accent2); }
+    .badge-working  { background: rgba(0,229,255,.15); color: var(--accent); }
+    .badge-charging { background: rgba(34,197,94,.15); color: var(--success); }
+    .badge-error    { background: rgba(239,68,68,.15);  color: var(--error); }
+
+    /* ── Battery bar ─────────────────────────────────────────────── */
+    .battery-bar {
+      height: 4px; border-radius: 2px;
+      background: var(--border); overflow: hidden;
+    }
+    .battery-bar .fill {
+      height: 100%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--success), var(--accent));
+      transition: width .5s;
+    }
+
+    /* ── Main ────────────────────────────────────────────────────── */
+    main {
+      grid-area: main;
+      padding: 24px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    /* ── Command input ───────────────────────────────────────────── */
+    .cmd-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .cmd-box h2 { font-size: 13px; color: var(--muted); margin-bottom: 12px; font-weight: 500; }
+    .cmd-row {
+      display: flex; gap: 10px;
+    }
+    .cmd-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .cmd-input:focus { border-color: var(--accent); box-shadow: var(--glow); }
+    .cmd-input::placeholder { color: var(--muted); }
+    .btn {
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      border: none; cursor: pointer;
+      font-weight: 600; font-size: 13px;
+      transition: opacity .2s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-danger  { background: var(--error);  color: #fff; }
+    .btn-ghost   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+    .quick-cmds {
+      margin-top: 10px;
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .quick-btn {
+      padding: 5px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      color: var(--muted);
+      font-size: 12px; cursor: pointer;
+      transition: color .2s, border-color .2s;
+    }
+    .quick-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── Steps timeline ──────────────────────────────────────────── */
+    .timeline {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .timeline h2 { font-size: 13px; color: var(--muted); margin-bottom: 16px; font-weight: 500; }
+    .step-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-item:last-child { border-bottom: none; }
+    .step-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0;
+      border: 2px solid var(--border);
+    }
+    .step-icon.pending  { border-color: var(--border); color: var(--muted); }
+    .step-icon.running  { border-color: var(--accent); color: var(--accent); animation: pulse 1s infinite; }
+    .step-icon.success  { border-color: var(--success); color: var(--success); background: rgba(34,197,94,.1); }
+    .step-icon.failed   { border-color: var(--error); color: var(--error); background: rgba(239,68,68,.1); }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,229,255,.4); } 50% { box-shadow: 0 0 0 6px rgba(0,229,255,0); } }
+    .step-body { flex: 1; }
+    .step-tool { font-weight: 600; font-size: 13px; font-family: var(--mono); }
+    .step-detail { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .step-ms { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    /* ── Summary card ────────────────────────────────────────────── */
+    .summary-card {
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      border: 1px solid;
+    }
+    .summary-card.success { border-color: var(--success); background: rgba(34,197,94,.07); }
+    .summary-card.error   { border-color: var(--error);   background: rgba(239,68,68,.07); }
+    .summary-card h3      { font-size: 13px; margin-bottom: 8px; }
+    .summary-card p       { font-size: 13px; color: var(--text); line-height: 1.6; }
+
+    /* ── Floor map placeholder ───────────────────────────────────── */
+    .map-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      flex: 1; min-height: 260px;
+      display: flex; flex-direction: column;
+    }
+    .map-panel h2 { font-size: 13px; color: var(--muted); margin-bottom: 12px; font-weight: 500; }
+    .map-canvas-wrap {
+      flex: 1;
+      position: relative;
+      background: #0a0e13;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    canvas#floorMap { width: 100%; height: 100%; display: block; }
+
+    /* ── Log panel ───────────────────────────────────────────────── */
+    .log-panel {
+      grid-area: log;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+    }
+    .log-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: var(--muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .log-entries {
+      flex: 1; overflow-y: auto; padding: 8px 12px;
+      font-family: var(--mono); font-size: 11px;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .log-entry {
+      padding: 4px 6px; border-radius: 4px;
+      display: flex; gap: 8px; align-items: flex-start;
+      line-height: 1.5;
+    }
+    .log-entry .ts { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+    .log-entry .msg { color: var(--text); word-break: break-all; }
+    .log-entry.info  { }
+    .log-entry.ok    { background: rgba(34,197,94,.05); }
+    .log-entry.ok .msg { color: var(--success); }
+    .log-entry.err   { background: rgba(239,68,68,.05); }
+    .log-entry.err .msg { color: var(--error); }
+    .log-entry.step  { background: rgba(0,229,255,.04); }
+    .log-entry.step .msg { color: var(--accent); }
+
+    /* ── Spinner ─────────────────────────────────────────────────── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollbar ───────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ HEADER -->
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
+    </svg>
+    Nayantra
+  </div>
+  <div style="font-size:12px;color:var(--muted);margin-left:8px;">LLM-powered autonomous robot navigation</div>
+  <div class="status-pill" id="connStatus">
+    <div class="dot" id="connDot"></div>
+    <span id="connLabel">Disconnected</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════ SIDEBAR -->
+<aside>
+  <div class="section-label">Fleet</div>
+  <div id="robotList">
+    <div style="color:var(--muted);font-size:12px;padding:8px 0;">Loading robots…</div>
+  </div>
+
+  <div class="section-label" style="margin-top:8px;">Quick Stats</div>
+  <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div class="robot-card" style="cursor:default;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Active Tasks</div>
+      <div id="statTasks" style="font-size:22px;font-weight:700;color:var(--accent);">—</div>
+    </div>
+    <div class="robot-card" style="cursor:default;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Alerts</div>
+      <div id="statAlerts" style="font-size:22px;font-weight:700;color:var(--warn);">—</div>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-top:8px;">Endpoints</div>
+  <div style="font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:5px;">
+    <div>Agent API: <span id="agentUrl" style="color:var(--text);font-family:var(--mono);">localhost:8080</span></div>
+    <div>MCP Server: <span id="mcpUrl" style="color:var(--text);font-family:var(--mono);">localhost:7000</span></div>
+    <div>RMF API: <span id="rmfUrl" style="color:var(--text);font-family:var(--mono);">localhost:8000</span></div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════ MAIN -->
+<main>
+  <!-- Command Input -->
+  <div class="cmd-box">
+    <h2>🤖 Natural Language Command</h2>
+    <div class="cmd-row">
+      <input
+        class="cmd-input"
+        id="cmdInput"
+        placeholder='e.g. "Send turtlebot3_1 to the charging dock"'
+        autocomplete="off"
+      />
+      <button class="btn btn-primary" id="sendBtn" onclick="sendCommand()">Send</button>
+      <button class="btn btn-ghost" id="clearBtn" onclick="clearAll()">Clear</button>
+    </div>
+    <div class="quick-cmds">
+      <button class="quick-btn" onclick="fillCmd(this)">List all robots</button>
+      <button class="quick-btn" onclick="fillCmd(this)">Send robot to charging dock</button>
+      <button class="quick-btn" onclick="fillCmd(this)">Check active tasks</button>
+      <button class="quick-btn" onclick="fillCmd(this)">Open the main entrance door</button>
+      <button class="quick-btn" onclick="fillCmd(this)">Call lift to floor 2</button>
+      <button class="quick-btn" onclick="fillCmd(this)">Check all alerts</button>
+      <button class="quick-btn" onclick="fillCmd(this)">Stop all robots</button>
+      <button class="quick-btn" onclick="fillCmd(this)">Get building map</button>
+    </div>
+  </div>
+
+  <!-- Mission Steps -->
+  <div class="timeline" id="timelineBox" style="display:none;">
+    <h2 id="timelineTitle">Execution Steps</h2>
+    <div id="stepsList"></div>
+  </div>
+
+  <!-- Summary -->
+  <div id="summaryBox" style="display:none;"></div>
+
+  <!-- Floor Map -->
+  <div class="map-panel">
+    <h2>Floor Map — L1 (Simulated)</h2>
+    <div class="map-canvas-wrap">
+      <canvas id="floorMap"></canvas>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════ LOG -->
+<div class="log-panel">
+  <div class="log-header">
+    Event Log
+    <button class="btn-ghost btn" style="padding:3px 10px;font-size:11px;" onclick="clearLog()">Clear</button>
+  </div>
+  <div class="log-entries" id="logEntries"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// Config — auto-detects same-origin when served by the agent API,
+// otherwise falls back to localhost defaults for static-file serving.
+// Override at runtime via window.RMF_CONFIG before this script loads.
+// ═══════════════════════════════════════════════════════════
+const sameOrigin = location.protocol.startsWith('http') ? `${location.protocol}//${location.host}` : null;
+const CONFIG = Object.assign({
+  agentUrl: sameOrigin || 'http://localhost:8080',
+  mcpUrl:   'http://localhost:7000',
+  rmfUrl:   'http://localhost:8000',
+}, window.RMF_CONFIG || {});
+
+// ═══════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════
+let currentMission = null;
+let sseSource = null;
+let running = false;
+let robots = [];
+
+// ═══════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('agentUrl').textContent = CONFIG.agentUrl.replace('http://','');
+  document.getElementById('mcpUrl').textContent   = CONFIG.mcpUrl.replace('http://','');
+  document.getElementById('rmfUrl').textContent   = CONFIG.rmfUrl.replace('http://','');
+
+  checkConnection();
+  setInterval(checkConnection, 10000);
+  setInterval(refreshFleet, 8000);
+  drawMap();
+
+  document.getElementById('cmdInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !running) sendCommand();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// Connection check
+// ═══════════════════════════════════════════════════════════
+async function checkConnection() {
+  try {
+    const r = await fetch(`${CONFIG.agentUrl}/health`, { signal: AbortSignal.timeout(3000) });
+    const j = await r.json();
+    setConnected(true, `Provider: ${j.provider || '?'}`);
+    refreshFleet();
+  } catch {
+    setConnected(false);
+  }
+}
+
+function setConnected(ok, label='') {
+  const dot = document.getElementById('connDot');
+  const lbl = document.getElementById('connLabel');
+  dot.className = 'dot ' + (ok ? 'connected' : 'error');
+  lbl.textContent = ok ? `Connected ${label}` : 'Disconnected';
+}
+
+// ═══════════════════════════════════════════════════════════
+// Fleet refresh
+// ═══════════════════════════════════════════════════════════
+async function refreshFleet() {
+  try {
+    const r = await fetch(`${CONFIG.mcpUrl}/tools`, { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) throw new Error('tools fetch failed');
+  } catch { /* silently skip when MCP is down */ }
+
+  // Simulate fleet data (replace with real /fleets call when live)
+  robots = [
+    { name: 'turtlebot3_1', fleet: 'turtlebot_fleet', status: 'idle',    battery: 0.94, x: 0.0, y: 0.0 },
+    { name: 'turtlebot3_2', fleet: 'turtlebot_fleet', status: 'charging', battery: 0.61, x: 3.2, y: 1.5 },
+  ];
+  renderRobots();
+  document.getElementById('statTasks').textContent   = robots.filter(r => r.status === 'working').length;
+  document.getElementById('statAlerts').textContent  = '0';
+  drawMap();
+}
+
+function renderRobots() {
+  const el = document.getElementById('robotList');
+  el.innerHTML = robots.map(r => `
+    <div class="robot-card" onclick="selectRobot('${r.name}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="r-name">${r.name}</div>
+        <span class="badge badge-${r.status}">${r.status}</span>
+      </div>
+      <div class="r-meta">
+        <span>⚡ ${(r.battery*100).toFixed(0)}%</span>
+        <span>📍 (${r.x.toFixed(1)}, ${r.y.toFixed(1)})</span>
+      </div>
+      <div class="battery-bar">
+        <div class="fill" style="width:${r.battery*100}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectRobot(name) {
+  document.querySelectorAll('.robot-card').forEach(c => c.classList.remove('selected'));
+  const r = robots.find(r => r.name === name);
+  if (r) {
+    document.getElementById('cmdInput').value = `Get status of ${r.name} in ${r.fleet}`;
+    event.currentTarget.classList.add('selected');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Command execution (SSE streaming)
+// ═══════════════════════════════════════════════════════════
+async function sendCommand() {
+  const input = document.getElementById('cmdInput');
+  const cmd = input.value.trim();
+  if (!cmd || running) return;
+
+  running = true;
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('sendBtn').innerHTML = '<span class="spinner"></span>';
+
+  // Reset UI
+  document.getElementById('timelineBox').style.display = 'block';
+  document.getElementById('timelineTitle').textContent  = `Mission: "${cmd}"`;
+  document.getElementById('stepsList').innerHTML = '';
+  document.getElementById('summaryBox').style.display = 'none';
+
+  addLog('step', `▶ ${cmd}`);
+
+  try {
+    const resp = await fetch(`${CONFIG.agentUrl}/command/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: cmd }),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+
+      // Process complete SSE messages
+      const messages = buf.split('\n\n');
+      buf = messages.pop(); // keep incomplete tail
+
+      for (const msg of messages) {
+        if (!msg.trim()) continue;
+        let event = 'message', data = '';
+        for (const line of msg.split('\n')) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          if (line.startsWith('data:'))  data  = line.slice(5).trim();
+        }
+        handleSSE(event, data ? JSON.parse(data) : {});
+      }
+    }
+  } catch (err) {
+    addLog('err', `Error: ${err.message}`);
+    // Fallback: blocking POST
+    try {
+      const resp = await fetch(`${CONFIG.agentUrl}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd }),
+      });
+      const data = await resp.json();
+      handleBlockingResult(data);
+    } catch (e2) {
+      addLog('err', `Fallback also failed: ${e2.message}`);
+    }
+  } finally {
+    running = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('sendBtn').innerHTML = 'Send';
+  }
+}
+
+function handleSSE(event, data) {
+  if (event === 'status') {
+    addLog('info', data.message || '');
+  } else if (event === 'step_start') {
+    addStepRow(data.index, data.tool, 'running');
+    addLog('step', `▶ Step ${data.index + 1}: ${data.tool}`);
+  } else if (event === 'step_done') {
+    updateStepRow(data.step_index, data.status, data.duration_ms);
+    const icon = data.status === 'success' ? '✅' : '❌';
+    addLog(data.status === 'success' ? 'ok' : 'err',
+      `${icon} ${data.tool} — ${data.status} (${data.duration_ms ?? '?'}ms)`);
+  } else if (event === 'done') {
+    showSummary(data.summary, data.success);
+    addLog(data.success ? 'ok' : 'err', data.success ? '✅ Mission complete' : '❌ Mission failed');
+  }
+}
+
+function handleBlockingResult(data) {
+  if (data.steps) {
+    data.steps.forEach(s => {
+      addStepRow(s.step_index, s.tool, s.status);
+    });
+  }
+  showSummary(data.summary, data.success);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Step timeline
+// ═══════════════════════════════════════════════════════════
+function addStepRow(index, tool, status) {
+  const el = document.createElement('div');
+  el.className = 'step-item';
+  el.id = `step-${index}`;
+  el.innerHTML = `
+    <div class="step-icon ${status}" id="step-icon-${index}">
+      ${statusIcon(status)}
+    </div>
+    <div class="step-body">
+      <div class="step-tool">${tool}</div>
+      <div class="step-detail" id="step-detail-${index}">Step ${index + 1}</div>
+    </div>
+    <div class="step-ms" id="step-ms-${index}">—</div>
+  `;
+  document.getElementById('stepsList').appendChild(el);
+}
+
+function updateStepRow(index, status, ms) {
+  const icon = document.getElementById(`step-icon-${index}`);
+  const msEl = document.getElementById(`step-ms-${index}`);
+  if (icon) { icon.className = `step-icon ${status}`; icon.innerHTML = statusIcon(status); }
+  if (msEl) msEl.textContent = ms != null ? `${ms}ms` : '—';
+}
+
+function statusIcon(s) {
+  if (s === 'running') return '<span class="spinner" style="width:12px;height:12px;border-width:2px;"></span>';
+  if (s === 'success') return '✓';
+  if (s === 'failed')  return '✗';
+  return '·';
+}
+
+// ═══════════════════════════════════════════════════════════
+// Summary
+// ═══════════════════════════════════════════════════════════
+function showSummary(text, success) {
+  const box = document.getElementById('summaryBox');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="summary-card ${success ? 'success' : 'error'}">
+      <h3>${success ? '✅ Mission Completed' : '❌ Mission Failed'}</h3>
+      <p>${text || '—'}</p>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Log
+// ═══════════════════════════════════════════════════════════
+function addLog(type, msg) {
+  const el = document.getElementById('logEntries');
+  const ts = new Date().toTimeString().slice(0, 8);
+  const row = document.createElement('div');
+  row.className = `log-entry ${type}`;
+  row.innerHTML = `<span class="ts">${ts}</span><span class="msg">${escHtml(msg)}</span>`;
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+
+  // Keep log to last 200 entries
+  while (el.children.length > 200) el.removeChild(el.firstChild);
+}
+
+function clearLog() { document.getElementById('logEntries').innerHTML = ''; }
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════
+function fillCmd(btn) {
+  document.getElementById('cmdInput').value = btn.textContent;
+  document.getElementById('cmdInput').focus();
+}
+
+function clearAll() {
+  document.getElementById('cmdInput').value = '';
+  document.getElementById('timelineBox').style.display = 'none';
+  document.getElementById('summaryBox').style.display  = 'none';
+  document.getElementById('stepsList').innerHTML = '';
+  clearLog();
+}
+
+// ═══════════════════════════════════════════════════════════
+// Floor map canvas
+// ═══════════════════════════════════════════════════════════
+function drawMap() {
+  const canvas = document.getElementById('floorMap');
+  const wrap   = canvas.parentElement;
+  canvas.width  = wrap.clientWidth  || 600;
+  canvas.height = wrap.clientHeight || 220;
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(48,54,61,.6)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Scale: 1 metre = 40px
+  const scale = 40;
+  const ox = W / 2, oy = H / 2;
+  const wx = (x) => ox + x * scale;
+  const wy = (y) => oy - y * scale;
+
+  // Walls (warehouse outline)
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(wx(-7), wy(4), 14*scale, 8*scale);
+
+  // Waypoints
+  const waypoints = [
+    { name: 'charging_dock', x: -5, y: -2 },
+    { name: 'zone_a',        x: -3, y:  2 },
+    { name: 'zone_b',        x:  3, y:  2 },
+    { name: 'zone_c',        x:  0, y: -2 },
+    { name: 'pick_station',  x: -5, y:  2 },
+    { name: 'drop_station',  x:  5, y: -2 },
+  ];
+
+  waypoints.forEach(wp => {
+    const px = wx(wp.x), py = wy(wp.y);
+    ctx.beginPath();
+    ctx.arc(px, py, 6, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(124,58,237,.3)';
+    ctx.fill();
+    ctx.strokeStyle = '#7c3aed';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#7d8590';
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(wp.name.replace('_', ' '), px, py - 10);
+  });
+
+  // Robots
+  robots.forEach((r, i) => {
+    const px = wx(r.x), py = wy(r.y);
+    const colour = r.status === 'idle' ? '#7c3aed'
+                 : r.status === 'charging' ? '#22c55e' : '#00e5ff';
+
+    // Glow
+    const grad = ctx.createRadialGradient(px, py, 0, px, py, 18);
+    grad.addColorStop(0, colour + '40');
+    grad.addColorStop(1, 'transparent');
+    ctx.beginPath(); ctx.arc(px, py, 18, 0, Math.PI*2);
+    ctx.fillStyle = grad; ctx.fill();
+
+    // Body
+    ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI*2);
+    ctx.fillStyle = colour + '22';
+    ctx.fill();
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#e6edf3';
+    ctx.font = 'bold 10px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(r.name.slice(-2), px, py + 4);
+
+    // Status dot
+    ctx.beginPath(); ctx.arc(px + 8, py - 8, 4, 0, Math.PI*2);
+    ctx.fillStyle = colour; ctx.fill();
+  });
+
+  // Legend
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  [['#7c3aed','Idle'], ['#00e5ff','Working'], ['#22c55e','Charging']].forEach(([c, l], i) => {
+    ctx.beginPath(); ctx.arc(14, H - 40 + i*14, 4, 0, Math.PI*2);
+    ctx.fillStyle = c; ctx.fill();
+    ctx.fillStyle = '#7d8590'; ctx.fillText(l, 24, H - 37 + i*14);
+  });
+}
+
+window.addEventListener('resize', drawMap);
+</script>
+</body>
+</html>

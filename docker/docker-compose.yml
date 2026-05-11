@@ -1,0 +1,122 @@
+version: "3.9"
+
+# =============================================================================
+# Nayantra — Docker Compose stack
+#
+# Services:
+#   mcp-server      — MCP tool server (FastAPI, port 7000)
+#   agent-api       — AI Agent HTTP API (FastAPI, port 8080)
+#   rmf-stub        — Lightweight OpenRMF API stub for local dev (port 8000)
+#   prometheus      — Metrics collection
+#   grafana         — Metrics dashboard (port 3000)
+#
+# Quick start:
+#   cp config/.env.example config/.env   # fill in API keys
+#   docker compose up --build
+#
+# NOTE: in-container services bind to 0.0.0.0 (overridden below) so the
+# published ports work. On a laptop running the code directly, the defaults
+# in nayantra/config.py bind to 127.0.0.1.
+# =============================================================================
+
+services:
+
+  # --------------------------------------------------------------------------
+  # MCP Server
+  # --------------------------------------------------------------------------
+  mcp-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp
+    container_name: nayantra-mcp-server
+    env_file: config/.env
+    ports:
+      - "7000:7000"
+    environment:
+      - MCP_SERVER_HOST=0.0.0.0
+      - MCP_SERVER_PORT=7000
+      - OPENRMF_API_URL=http://rmf-stub:8000
+    depends_on:
+      rmf-stub:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # AI Agent API
+  # --------------------------------------------------------------------------
+  agent-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent
+    container_name: nayantra-agent-api
+    env_file: config/.env
+    ports:
+      - "8080:8080"
+    environment:
+      - AGENT_API_HOST=0.0.0.0
+      - AGENT_API_PORT=8080
+      - MCP_SERVER_URL=http://mcp-server:7000
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # OpenRMF API Stub (for local development without a real RMF server)
+  # --------------------------------------------------------------------------
+  rmf-stub:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.stub
+    container_name: nayantra-rmf-stub
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # Prometheus
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: nayantra-prometheus
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Grafana
+  # --------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.3.2
+    container_name: nayantra-grafana
+    ports:
+      - "3000:3000"
+    # DEV ONLY — change the admin password before deploying anywhere non-local.
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  grafana-data:
