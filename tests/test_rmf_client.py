@@ -4,6 +4,7 @@ tests/test_rmf_client.py
 Tests for OpenRMFClient in debug (simulated) mode.
 All tests run without a live RMF server.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -22,6 +23,7 @@ async def client():
 # Fleets
 # ---------------------------------------------------------------------------
 
+
 async def test_get_fleets_returns_list(client):
     result = await client.get_fleets()
     data = result.get("data", result)
@@ -37,6 +39,7 @@ async def test_get_robot_state_debug(client):
 # ---------------------------------------------------------------------------
 # Tasks
 # ---------------------------------------------------------------------------
+
 
 async def test_get_tasks_debug(client):
     result = await client.get_tasks()
@@ -70,6 +73,7 @@ async def test_get_task_state_debug(client):
 # Doors & Lifts
 # ---------------------------------------------------------------------------
 
+
 async def test_get_doors_debug(client):
     result = await client.get_doors()
     data = result.get("data", result)
@@ -95,6 +99,7 @@ async def test_get_lift_state_debug(client):
 # ---------------------------------------------------------------------------
 # Alerts & Safety
 # ---------------------------------------------------------------------------
+
 
 async def test_get_alerts_debug(client):
     result = await client.get_alerts()

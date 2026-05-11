@@ -3,6 +3,7 @@ tests/test_config.py
 
 Settings smoke tests — verify all fields have sensible defaults.
 """
+
 from nayantra.config import settings
 
 

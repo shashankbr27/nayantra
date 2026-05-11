@@ -31,19 +31,18 @@ publishes simulated state updates only.
 
 Ref: https://github.com/open-rmf/rmf_ros2/tree/main/rmf_fleet_adapter
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import math
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any, Callable, Dict, List, Optional
-
-from nayantra.config import settings
+from typing import Any
 
 logger = logging.getLogger("nayantra.fleet_adapter")
 
@@ -51,21 +50,23 @@ logger = logging.getLogger("nayantra.fleet_adapter")
 # RMF Robot Modes (matches rmf_fleet_msgs/RobotMode)
 # ---------------------------------------------------------------------------
 
+
 class RobotMode(IntEnum):
-    IDLE        = 0
-    CHARGING    = 1
-    MOVING      = 2
-    PAUSED      = 3
-    WAITING     = 4
-    EMERGENCY   = 5
-    GOING_HOME  = 6
-    DOCKING     = 7
+    IDLE = 0
+    CHARGING = 1
+    MOVING = 2
+    PAUSED = 3
+    WAITING = 4
+    EMERGENCY = 5
+    GOING_HOME = 6
+    DOCKING = 7
     ADAPTER_ERROR = 8
 
 
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RobotLocation:
@@ -84,13 +85,14 @@ class RobotState:
     battery_percent: float = 100.0
     location: RobotLocation = field(default_factory=RobotLocation)
     task_id: str = ""
-    path: List[RobotLocation] = field(default_factory=list)
+    path: list[RobotLocation] = field(default_factory=list)
     seq: int = 0
 
 
 # ---------------------------------------------------------------------------
 # Nav2 goal representation (used in stub mode)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Nav2Goal:
@@ -104,6 +106,7 @@ class Nav2Goal:
 # ---------------------------------------------------------------------------
 # Fleet Adapter
 # ---------------------------------------------------------------------------
+
 
 class RMFFleetAdapter:
     """
@@ -132,8 +135,8 @@ class RMFFleetAdapter:
         self._ros2_enabled = ros2_enabled
         self._state = RobotState(name=robot_name, fleet_name=fleet_name)
         self._running = False
-        self._nav_goal: Optional[Nav2Goal] = None
-        self._state_callbacks: List[Callable[[RobotState], None]] = []
+        self._nav_goal: Nav2Goal | None = None
+        self._state_callbacks: list[Callable[[RobotState], None]] = []
 
         # ROS 2 node handles (populated in live mode)
         self._node = None
@@ -161,6 +164,7 @@ class RMFFleetAdapter:
         if self._node:
             try:
                 import rclpy
+
                 self._node.destroy_node()
                 rclpy.shutdown()
             except Exception:
@@ -175,28 +179,24 @@ class RMFFleetAdapter:
         """Initialise rclpy node, publishers, and action clients."""
         try:
             import rclpy
-            from rclpy.node import Node
             from rclpy.action import ActionClient
 
             rclpy.init()
-            self._node = rclpy.create_node(
-                f"rmf_fleet_adapter_{self.robot_name.replace('-', '_')}"
-            )
+            self._node = rclpy.create_node(f"rmf_fleet_adapter_{self.robot_name.replace('-', '_')}")
 
             # Odometry subscriber
             from nav_msgs.msg import Odometry  # type: ignore
-            self._node.create_subscription(
-                Odometry, "/odom", self._odom_callback, 10
-            )
+
+            self._node.create_subscription(Odometry, "/odom", self._odom_callback, 10)
 
             # Nav2 action client
             from nav2_msgs.action import NavigateToPose  # type: ignore
-            self._nav_client = ActionClient(
-                self._node, NavigateToPose, "navigate_to_pose"
-            )
+
+            self._nav_client = ActionClient(self._node, NavigateToPose, "navigate_to_pose")
 
             # Robot state publisher
             from rmf_fleet_msgs.msg import RobotState as RmfRobotState  # type: ignore
+
             self._state_publisher = self._node.create_publisher(
                 RmfRobotState, f"/rmf_fleet/{self.fleet_name}/robot_state", 10
             )
@@ -219,6 +219,7 @@ class RMFFleetAdapter:
         while self._running:
             if self._ros2_enabled and self._node:
                 import rclpy
+
                 rclpy.spin_once(self._node, timeout_sec=0)
             else:
                 self._step_simulation(dt=0.5)
@@ -290,7 +291,9 @@ class RMFFleetAdapter:
         Returns:
             True if the goal was accepted; False otherwise.
         """
-        logger.info(f"[{self.robot_name}] Navigate to ({x:.2f}, {y:.2f}, {yaw:.2f}) label={label!r}")
+        logger.info(
+            f"[{self.robot_name}] Navigate to ({x:.2f}, {y:.2f}, {yaw:.2f}) label={label!r}"
+        )
 
         self._nav_goal = Nav2Goal(x=x, y=y, yaw=yaw, label=label)
         self._state.mode = RobotMode.MOVING
@@ -299,9 +302,8 @@ class RMFFleetAdapter:
             return True
 
         try:
+            from geometry_msgs.msg import PoseStamped  # type: ignore
             from nav2_msgs.action import NavigateToPose  # type: ignore
-            from geometry_msgs.msg import PoseStamped    # type: ignore
-            import rclpy.time
 
             goal_msg = NavigateToPose.Goal()
             goal_msg.pose = PoseStamped()
@@ -319,7 +321,9 @@ class RMFFleetAdapter:
             logger.error(f"Nav2 goal failed: {exc}")
             return False
 
-    async def navigate_to_waypoint(self, waypoint_name: str, waypoint_map: Dict[str, tuple]) -> bool:
+    async def navigate_to_waypoint(
+        self, waypoint_name: str, waypoint_map: dict[str, tuple]
+    ) -> bool:
         """
         Navigate to a named waypoint using a name→(x, y, yaw) lookup map.
 
@@ -371,11 +375,13 @@ class RMFFleetAdapter:
     def _publish_ros2_state(self) -> None:
         """Publish rmf_fleet_msgs/RobotState to ROS 2."""
         try:
-            from rmf_fleet_msgs.msg import (  # type: ignore
-                RobotState as RmfRobotState,
-                RobotMode as RmfRobotMode,
+            from rmf_fleet_msgs.msg import (
                 Location,
             )
+            from rmf_fleet_msgs.msg import (  # type: ignore
+                RobotState as RmfRobotState,
+            )
+
             msg = RmfRobotState()
             msg.name = self._state.name
             msg.model = "turtlebot3"
@@ -384,8 +390,8 @@ class RMFFleetAdapter:
             msg.mode.mode = int(self._state.mode)
             msg.battery_percent = self._state.battery_percent
             loc = Location()
-            loc.x   = self._state.location.x
-            loc.y   = self._state.location.y
+            loc.x = self._state.location.x
+            loc.y = self._state.location.y
             loc.yaw = self._state.location.yaw
             loc.level_name = self._state.location.level_name
             loc.t.sec = int(self._state.location.t)
@@ -410,18 +416,22 @@ class RMFFleetAdapter:
     def state(self) -> RobotState:
         return self._state
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         """Serialisable state snapshot."""
         loc = self._state.location
         return {
-            "name":            self._state.name,
-            "fleet":           self._state.fleet_name,
-            "mode":            self._state.mode.name,
+            "name": self._state.name,
+            "fleet": self._state.fleet_name,
+            "mode": self._state.mode.name,
             "battery_percent": self._state.battery_percent,
-            "location":        {"x": round(loc.x, 3), "y": round(loc.y, 3),
-                                "yaw": round(loc.yaw, 3), "level": loc.level_name},
-            "task_id":         self._state.task_id,
-            "seq":             self._state.seq,
+            "location": {
+                "x": round(loc.x, 3),
+                "y": round(loc.y, 3),
+                "yaw": round(loc.yaw, 3),
+                "level": loc.level_name,
+            },
+            "task_id": self._state.task_id,
+            "seq": self._state.seq,
         }
 
 
@@ -429,15 +439,15 @@ class RMFFleetAdapter:
 # Default warehouse waypoint map
 # ---------------------------------------------------------------------------
 
-WAREHOUSE_WAYPOINTS: Dict[str, tuple] = {
-    "charging_dock":  (-5.0, -2.0, 0.0),
-    "zone_a":         (-3.0,  2.0, 0.0),
-    "zone_b":         ( 3.0,  2.0, math.pi),
-    "zone_c":         ( 0.0, -2.0, 0.0),
-    "pick_station_1": (-5.0,  2.0, 0.0),
-    "drop_station_1": ( 5.0, -2.0, math.pi),
-    "elevator_lobby": ( 0.0,  0.0, 0.0),
-    "entrance":       (-6.0,  0.0, 0.0),
+WAREHOUSE_WAYPOINTS: dict[str, tuple] = {
+    "charging_dock": (-5.0, -2.0, 0.0),
+    "zone_a": (-3.0, 2.0, 0.0),
+    "zone_b": (3.0, 2.0, math.pi),
+    "zone_c": (0.0, -2.0, 0.0),
+    "pick_station_1": (-5.0, 2.0, 0.0),
+    "drop_station_1": (5.0, -2.0, math.pi),
+    "elevator_lobby": (0.0, 0.0, 0.0),
+    "entrance": (-6.0, 0.0, 0.0),
 }
 
 
@@ -445,11 +455,12 @@ WAREHOUSE_WAYPOINTS: Dict[str, tuple] = {
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Nayantra RMF Fleet Adapter")
-    parser.add_argument("--fleet",  default="turtlebot_fleet",  help="Fleet name")
-    parser.add_argument("--robot",  default="turtlebot3_1",     help="Robot name")
-    parser.add_argument("--ros2",   action="store_true",        help="Enable live ROS 2 mode")
+    parser.add_argument("--fleet", default="turtlebot_fleet", help="Fleet name")
+    parser.add_argument("--robot", default="turtlebot3_1", help="Robot name")
+    parser.add_argument("--ros2", action="store_true", help="Enable live ROS 2 mode")
     args = parser.parse_args()
 
     adapter = RMFFleetAdapter(

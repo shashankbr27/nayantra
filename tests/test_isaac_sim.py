@@ -4,37 +4,37 @@ tests/test_isaac_sim.py
 Tests for the Isaac Sim bridge and robot spawner.
 All tests run in stub mode (ISAAC_SIM_ENABLED=false) — no GPU required.
 """
+
 from __future__ import annotations
 
-import asyncio
 import pytest
-from unittest.mock import patch, AsyncMock
 
-from nayantra.isaac_sim.sim_bridge import IsaacSimBridge
 from nayantra.isaac_sim.robot_spawner import RobotConfig, RobotSpawner, RobotState
-
+from nayantra.isaac_sim.sim_bridge import IsaacSimBridge
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def bridge():
     b = IsaacSimBridge()
-    b._enabled = False   # Force stub mode
+    b._enabled = False  # Force stub mode
     return b
 
 
 @pytest.fixture
 def spawner():
     s = RobotSpawner()
-    s._bridge._enabled = False   # Force stub mode
+    s._bridge._enabled = False  # Force stub mode
     return s
 
 
 # ---------------------------------------------------------------------------
 # IsaacSimBridge — stub mode
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_bridge_connect_stub_returns_true(bridge):
@@ -82,12 +82,13 @@ async def test_bridge_reset_scene_stub(bridge):
 
 @pytest.mark.asyncio
 async def test_bridge_close_ok(bridge):
-    await bridge.close()   # should not raise
+    await bridge.close()  # should not raise
 
 
 # ---------------------------------------------------------------------------
 # RobotSpawner
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_spawner_connect(spawner):
@@ -163,6 +164,7 @@ async def test_spawner_close_no_error(spawner):
 # ---------------------------------------------------------------------------
 # RobotConfig defaults
 # ---------------------------------------------------------------------------
+
 
 def test_robot_config_defaults():
     cfg = RobotConfig(name="r1")

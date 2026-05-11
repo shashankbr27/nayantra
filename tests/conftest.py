@@ -5,10 +5,10 @@ Shared pytest fixtures for the whole test suite.
 
 Anything defined here is available to every test_*.py file without import.
 """
+
 from __future__ import annotations
 
 import asyncio
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -18,10 +18,10 @@ from nayantra.agent.history import MissionStore
 from nayantra.config import settings
 from nayantra.rmf_client.client import OpenRMFClient
 
-
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def env_settings():
@@ -46,6 +46,7 @@ def _force_debug_mode(monkeypatch):
 # RMF client (simulated)
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def debug_client():
     """A simulated OpenRMFClient for tests that don't need a real RMF server."""
@@ -58,6 +59,7 @@ async def debug_client():
 # Mission store with isolated temp DB
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def tmp_mission_store(tmp_path: Path):
     """A MissionStore pointed at a per-test temporary SQLite file."""
@@ -68,6 +70,7 @@ def tmp_mission_store(tmp_path: Path):
 # ---------------------------------------------------------------------------
 # asyncio event loop (session scoped so async fixtures share it)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def event_loop():

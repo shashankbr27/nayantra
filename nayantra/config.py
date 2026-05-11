@@ -3,10 +3,10 @@ nayantra/config.py
 
 Application settings loaded from environment variables via pydantic-settings.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     API_KEY: str = ""
 
     # CORS — restrictive default. Add your front-end origins via .env (comma-separated).
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:8080",
         "http://127.0.0.1:3000",

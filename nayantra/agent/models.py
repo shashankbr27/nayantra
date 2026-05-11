@@ -3,16 +3,17 @@ nayantra/agent/models.py
 
 Pydantic models for the AI agent pipeline.
 """
+
 from __future__ import annotations
 
 import uuid
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -20,24 +21,24 @@ class StepStatus(str, Enum):
 
 class ToolCall(BaseModel):
     tool: str
-    parameters: Dict[str, Any] = Field(default_factory=dict)
-    reason: Optional[str] = None
-    depends_on: Optional[int] = None
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    reason: str | None = None
+    depends_on: int | None = None
 
 
 class AgentPlan(BaseModel):
-    steps: List[ToolCall] = Field(default_factory=list)
-    direct_answer: Optional[str] = None
-    clarification_needed: Optional[str] = None
+    steps: list[ToolCall] = Field(default_factory=list)
+    direct_answer: str | None = None
+    clarification_needed: str | None = None
 
 
 class StepResult(BaseModel):
     step_index: int
     tool: str
-    parameters: Dict[str, Any] = Field(default_factory=dict)
+    parameters: dict[str, Any] = Field(default_factory=dict)
     status: StepStatus = StepStatus.SUCCESS
-    result: Optional[Any] = None
-    error: Optional[str] = None
+    result: Any | None = None
+    error: str | None = None
     duration_ms: float = 0.0
 
 
@@ -46,4 +47,4 @@ class MissionResult(BaseModel):
     command: str = ""
     summary: str = ""
     success: bool = False
-    steps: List[StepResult] = Field(default_factory=list)
+    steps: list[StepResult] = Field(default_factory=list)

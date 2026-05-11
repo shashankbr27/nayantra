@@ -9,11 +9,11 @@ Adds over v1:
   - Batch command endpoint (POST /v2/batch)
   - History search (GET /v2/history/search?q=...)
 """
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -47,7 +47,7 @@ _DASHBOARD = Path(__file__).resolve().parents[2] / "nayantra" / "api" / "dashboa
 
 
 class BatchRequest(BaseModel):
-    commands: List[str]
+    commands: list[str]
 
 
 @app.get("/v2/health")

@@ -3,16 +3,15 @@ tests/test_ws_monitor.py
 
 Unit tests for the WebSocket connection manager and event routing.
 """
+
 from __future__ import annotations
 
-import pytest
-
 from nayantra.api.ws_monitor import ConnectionManager, _event_to_topic
-
 
 # ---------------------------------------------------------------------------
 # _event_to_topic mapping
 # ---------------------------------------------------------------------------
+
 
 def test_fleet_state_maps_to_fleet():
     assert _event_to_topic("fleet_state") == "fleet"
@@ -47,6 +46,7 @@ def test_unknown_event_maps_to_wildcard():
 # ConnectionManager
 # ---------------------------------------------------------------------------
 
+
 def test_manager_starts_empty():
     mgr = ConnectionManager()
     assert mgr.count == 0
@@ -59,9 +59,11 @@ def test_manager_count_type():
 
 def test_router_is_created():
     from nayantra.api.ws_monitor import router
+
     assert router is not None
 
 
 def test_manager_is_module_level():
     from nayantra.api.ws_monitor import manager
+
     assert isinstance(manager, ConnectionManager)

@@ -19,13 +19,13 @@ Usage:
     if not report.ready:
         sys.exit(1)
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 import httpx
 
@@ -38,18 +38,19 @@ logger = logging.getLogger("rmf.health")
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class HealthResult:
     name: str
     ok: bool
     message: str
-    latency_ms: Optional[float] = None
-    optional: bool = False        # if True, failure is warned but not fatal
+    latency_ms: float | None = None
+    optional: bool = False  # if True, failure is warned but not fatal
 
 
 @dataclass
 class HealthReport:
-    results: List[HealthResult] = field(default_factory=list)
+    results: list[HealthResult] = field(default_factory=list)
 
     @property
     def ready(self) -> bool:
@@ -60,8 +61,8 @@ class HealthReport:
     def summary(self) -> str:
         lines = []
         for r in self.results:
-            icon  = "✅" if r.ok else ("⚠️ " if r.optional else "❌")
-            ms    = f" ({r.latency_ms:.0f}ms)" if r.latency_ms is not None else ""
+            icon = "✅" if r.ok else ("⚠️ " if r.optional else "❌")
+            ms = f" ({r.latency_ms:.0f}ms)" if r.latency_ms is not None else ""
             lines.append(f"  {icon} {r.name}{ms}: {r.message}")
         status = "READY" if self.ready else "NOT READY"
         return f"System {status}\n" + "\n".join(lines)
@@ -71,11 +72,11 @@ class HealthReport:
             "ready": self.ready,
             "checks": [
                 {
-                    "name":       r.name,
-                    "ok":         r.ok,
-                    "message":    r.message,
+                    "name": r.name,
+                    "ok": r.ok,
+                    "message": r.message,
                     "latency_ms": r.latency_ms,
-                    "optional":   r.optional,
+                    "optional": r.optional,
                 }
                 for r in self.results
             ],
@@ -86,8 +87,8 @@ class HealthReport:
 # Checker
 # ---------------------------------------------------------------------------
 
-class HealthChecker:
 
+class HealthChecker:
     def __init__(self) -> None:
         self._http = httpx.AsyncClient(timeout=5.0)
 
@@ -144,15 +145,23 @@ class HealthChecker:
             resp = await self._http.get(url)
             latency = (time.monotonic() - t0) * 1000
             if resp.status_code == 200:
-                return HealthResult("mcp_server", ok=True,
-                                    message="Reachable", latency_ms=round(latency, 1))
-            return HealthResult("mcp_server", ok=False,
-                                message=f"HTTP {resp.status_code}", latency_ms=round(latency, 1))
+                return HealthResult(
+                    "mcp_server", ok=True, message="Reachable", latency_ms=round(latency, 1)
+                )
+            return HealthResult(
+                "mcp_server",
+                ok=False,
+                message=f"HTTP {resp.status_code}",
+                latency_ms=round(latency, 1),
+            )
         except httpx.ConnectError:
             latency = (time.monotonic() - t0) * 1000
-            return HealthResult("mcp_server", ok=False,
-                                message=f"Connection refused at {url}",
-                                latency_ms=round(latency, 1))
+            return HealthResult(
+                "mcp_server",
+                ok=False,
+                message=f"Connection refused at {url}",
+                latency_ms=round(latency, 1),
+            )
         except Exception as exc:
             return HealthResult("mcp_server", ok=False, message=str(exc))
 
@@ -163,19 +172,27 @@ class HealthChecker:
         try:
             resp = await self._http.get(url)
             latency = (time.monotonic() - t0) * 1000
-            if resp.status_code in (200, 404):   # 404 = no /health but server exists
-                return HealthResult("rmf_api", ok=True,
-                                    message="Reachable", latency_ms=round(latency, 1))
-            return HealthResult("rmf_api", ok=False,
-                                message=f"HTTP {resp.status_code}", latency_ms=round(latency, 1))
+            if resp.status_code in (200, 404):  # 404 = no /health but server exists
+                return HealthResult(
+                    "rmf_api", ok=True, message="Reachable", latency_ms=round(latency, 1)
+                )
+            return HealthResult(
+                "rmf_api",
+                ok=False,
+                message=f"HTTP {resp.status_code}",
+                latency_ms=round(latency, 1),
+            )
         except httpx.ConnectError:
             latency = (time.monotonic() - t0) * 1000
             # Non-fatal in debug mode
-            return HealthResult("rmf_api", ok=settings.DEBUG_MODE,
-                                message=f"Connection refused at {url} "
-                                        f"({'OK in debug mode' if settings.DEBUG_MODE else 'FATAL'})",
-                                latency_ms=round(latency, 1),
-                                optional=settings.DEBUG_MODE)
+            return HealthResult(
+                "rmf_api",
+                ok=settings.DEBUG_MODE,
+                message=f"Connection refused at {url} "
+                f"({'OK in debug mode' if settings.DEBUG_MODE else 'FATAL'})",
+                latency_ms=round(latency, 1),
+                optional=settings.DEBUG_MODE,
+            )
         except Exception as exc:
             return HealthResult("rmf_api", ok=False, message=str(exc), optional=settings.DEBUG_MODE)
 
@@ -186,13 +203,17 @@ class HealthChecker:
         try:
             resp = await self._http.get(url)
             latency = (time.monotonic() - t0) * 1000
-            return HealthResult("isaac_sim", ok=resp.status_code == 200,
-                                message="Reachable" if resp.status_code == 200 else f"HTTP {resp.status_code}",
-                                latency_ms=round(latency, 1), optional=True)
+            return HealthResult(
+                "isaac_sim",
+                ok=resp.status_code == 200,
+                message="Reachable" if resp.status_code == 200 else f"HTTP {resp.status_code}",
+                latency_ms=round(latency, 1),
+                optional=True,
+            )
         except Exception as exc:
-            return HealthResult("isaac_sim", ok=False,
-                                message=f"Not reachable: {exc}",
-                                optional=True)
+            return HealthResult(
+                "isaac_sim", ok=False, message=f"Not reachable: {exc}", optional=True
+            )
 
     async def close(self) -> None:
         await self._http.aclose()

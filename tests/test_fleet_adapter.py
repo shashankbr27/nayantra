@@ -4,17 +4,18 @@ tests/test_fleet_adapter.py
 Tests for the ROS 2 fleet adapter simulation mode.
 No ROS 2 required — all tests run against the stub/simulation path.
 """
+
 from __future__ import annotations
 
-import asyncio
 import math
+
 import pytest
 
 from nayantra.ros2_adapter.fleet_adapter import (
+    WAREHOUSE_WAYPOINTS,
     RMFFleetAdapter,
     RobotMode,
     RobotState,
-    WAREHOUSE_WAYPOINTS,
 )
 
 
@@ -30,6 +31,7 @@ def adapter():
 # ---------------------------------------------------------------------------
 # Initial state
 # ---------------------------------------------------------------------------
+
 
 def test_adapter_initial_mode_idle(adapter):
     assert adapter.state.mode == RobotMode.IDLE
@@ -54,6 +56,7 @@ def test_adapter_state_dict_shape(adapter):
 # Navigation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_navigate_to_sets_goal(adapter):
     result = await adapter.navigate_to(3.0, 2.0, 0.5)
@@ -71,9 +74,7 @@ async def test_navigate_sets_moving_mode(adapter):
 
 @pytest.mark.asyncio
 async def test_navigate_to_waypoint_known(adapter):
-    result = await adapter.navigate_to_waypoint(
-        "charging_dock", WAREHOUSE_WAYPOINTS
-    )
+    result = await adapter.navigate_to_waypoint("charging_dock", WAREHOUSE_WAYPOINTS)
     assert result is True
     assert adapter._nav_goal is not None
     goal = adapter._nav_goal
@@ -91,6 +92,7 @@ async def test_navigate_to_waypoint_unknown_returns_false(adapter):
 # ---------------------------------------------------------------------------
 # Simulation stepping
 # ---------------------------------------------------------------------------
+
 
 def test_sim_step_moves_toward_goal(adapter):
     adapter._nav_goal = type("G", (), {"x": 2.0, "y": 0.0, "yaw": 0.0})()
@@ -119,13 +121,14 @@ def test_yaw_computed_correctly(adapter):
     """Robot heading toward (1, 1) should be ~45°."""
     adapter._nav_goal = type("G", (), {"x": 1.0, "y": 1.0, "yaw": 0.0})()
     adapter._step_simulation(dt=1.0)
-    expected_yaw = math.atan2(1.0, 1.0)   # ~0.785 rad
+    expected_yaw = math.atan2(1.0, 1.0)  # ~0.785 rad
     assert abs(adapter.state.location.yaw - expected_yaw) < 0.01
 
 
 # ---------------------------------------------------------------------------
 # Pause / resume / emergency stop
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_pause_sets_paused_mode(adapter):
@@ -162,6 +165,7 @@ async def test_emergency_stop(adapter):
 # State callbacks
 # ---------------------------------------------------------------------------
 
+
 def test_state_callback_called_on_publish(adapter):
     received = []
     adapter.on_state_update(received.append)
@@ -182,6 +186,7 @@ def test_multiple_callbacks(adapter):
 # ---------------------------------------------------------------------------
 # Warehouse waypoints
 # ---------------------------------------------------------------------------
+
 
 def test_warehouse_waypoints_have_required_locations():
     for name in ("charging_dock", "zone_a", "zone_b", "zone_c"):

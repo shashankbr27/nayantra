@@ -9,46 +9,50 @@ These models serve two purposes:
 
 Reference: https://github.com/open-rmf/rmf-web/tree/main/packages/api-server
 """
+
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from typing import Any
 
+from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
 # Common
 # ---------------------------------------------------------------------------
+
 
 class Location2D(BaseModel):
     x: float
     y: float
     yaw: float
     level_name: str = ""
-    index: Optional[int] = None
+    index: int | None = None
 
 
 # ---------------------------------------------------------------------------
 # Fleet & Robot
 # ---------------------------------------------------------------------------
 
+
 class RobotStatus(BaseModel):
     name: str
-    status: str = ""                     # idle | charging | working | error
+    status: str = ""  # idle | charging | working | error
     task_id: str = ""
     battery: float = Field(0.0, ge=0.0, le=1.0)
-    location: Optional[Location2D] = None
-    commission: Optional[Dict[str, Any]] = None
+    location: Location2D | None = None
+    commission: dict[str, Any] | None = None
 
 
 class FleetState(BaseModel):
     name: str
-    robots: Dict[str, RobotStatus] = Field(default_factory=dict)
+    robots: dict[str, RobotStatus] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
 # Tasks
 # ---------------------------------------------------------------------------
+
 
 class TaskPriority(BaseModel):
     type: str = "binary"
@@ -58,11 +62,11 @@ class TaskPriority(BaseModel):
 class TaskRequest(BaseModel):
     unix_millis_earliest_start_time: int = 0
     priority: TaskPriority = Field(default_factory=TaskPriority)
-    category: str                        # navigate_to_waypoint | delivery | patrol | loop
-    description: Dict[str, Any] = Field(default_factory=dict)
-    fleet_name: Optional[str] = None
-    robot_name: Optional[str] = None
-    labels: List[str] = Field(default_factory=list)
+    category: str  # navigate_to_waypoint | delivery | patrol | loop
+    description: dict[str, Any] = Field(default_factory=dict)
+    fleet_name: str | None = None
+    robot_name: str | None = None
+    labels: list[str] = Field(default_factory=list)
 
 
 class DispatchTaskRequest(BaseModel):
@@ -72,50 +76,51 @@ class DispatchTaskRequest(BaseModel):
 
 class TaskPhase(BaseModel):
     id: int
-    category: Optional[str] = None
-    detail: Optional[str] = None
+    category: str | None = None
+    detail: str | None = None
 
 
 class TaskBooking(BaseModel):
     id: str
-    unix_millis_earliest_start_time: Optional[int] = None
-    priority: Optional[TaskPriority] = None
-    labels: List[str] = Field(default_factory=list)
-    requester: Optional[str] = None
+    unix_millis_earliest_start_time: int | None = None
+    priority: TaskPriority | None = None
+    labels: list[str] = Field(default_factory=list)
+    requester: str | None = None
 
 
 class TaskStatus(BaseModel):
-    value: str = "unknown"   # uninitialized | blocked | error | failed | queued | standby | underway | completed | killed | canceled | interruped
+    value: str = "unknown"  # uninitialized | blocked | error | failed | queued | standby | underway | completed | killed | canceled | interruped
 
 
 class TaskState(BaseModel):
     booking: TaskBooking
-    category: Optional[str] = None
-    detail: Optional[str] = None
-    unix_millis_start_time: Optional[int] = None
-    unix_millis_finish_time: Optional[int] = None
-    original_estimate_millis: Optional[int] = None
-    estimate_millis: Optional[int] = None
-    assigned_to: Optional[Dict[str, str]] = None
-    status: Optional[TaskStatus] = None
-    phases: Optional[Dict[str, TaskPhase]] = None
-    active: Optional[int] = None
-    completed: List[int] = Field(default_factory=list)
-    cancelled: Optional[int] = None
-    killed: Optional[int] = None
-    interrupted_summary: Optional[Dict[str, Any]] = None
+    category: str | None = None
+    detail: str | None = None
+    unix_millis_start_time: int | None = None
+    unix_millis_finish_time: int | None = None
+    original_estimate_millis: int | None = None
+    estimate_millis: int | None = None
+    assigned_to: dict[str, str] | None = None
+    status: TaskStatus | None = None
+    phases: dict[str, TaskPhase] | None = None
+    active: int | None = None
+    completed: list[int] = Field(default_factory=list)
+    cancelled: int | None = None
+    killed: int | None = None
+    interrupted_summary: dict[str, Any] | None = None
 
 
 class DispatchTaskResponse(BaseModel):
     success: bool
-    task_id: Optional[str] = None
-    state: Optional[TaskState] = None
-    errors: Optional[List[Dict[str, Any]]] = None
+    task_id: str | None = None
+    state: TaskState | None = None
+    errors: list[dict[str, Any]] | None = None
 
 
 # ---------------------------------------------------------------------------
 # Doors
 # ---------------------------------------------------------------------------
+
 
 class DoorMode(IntEnum):
     CLOSED = 0
@@ -135,12 +140,13 @@ class DoorState(BaseModel):
 class DoorRequest(BaseModel):
     mode: int = DoorMode.OPEN
     requester_id: str = "nayantra"
-    request_time: Optional[int] = None
+    request_time: int | None = None
 
 
 # ---------------------------------------------------------------------------
 # Lifts / Elevators
 # ---------------------------------------------------------------------------
+
 
 class LiftMotionState(IntEnum):
     STOPPED = 0
@@ -161,8 +167,8 @@ class LiftState(BaseModel):
     destination_floor: str = ""
     door_state: DoorModeMsg = Field(default_factory=DoorModeMsg)
     motion_state: DoorModeMsg = Field(default_factory=DoorModeMsg)
-    available_floors: List[str] = Field(default_factory=list)
-    lift_time: Optional[int] = None
+    available_floors: list[str] = Field(default_factory=list)
+    lift_time: int | None = None
     session_id: str = ""
 
 
@@ -171,29 +177,30 @@ class LiftRequest(BaseModel):
     door_state: int = LiftDoorState.OPEN
     request_type: int = 0
     session_id: str = "nayantra"
-    request_time: Optional[int] = None
+    request_time: int | None = None
 
 
 # ---------------------------------------------------------------------------
 # Alerts
 # ---------------------------------------------------------------------------
 
+
 class AlertType(BaseModel):
-    value: str = "task"   # task | fleet | default
+    value: str = "task"  # task | fleet | default
 
 
 class Alert(BaseModel):
     id: str
     original_id: str = ""
-    category: Optional[AlertType] = None
+    category: AlertType | None = None
     unix_millis_alert_time: int = 0
     title: str = ""
     subtitle: str = ""
     message: str = ""
-    display: Optional[Dict[str, Any]] = None
-    tier: str = "info"    # info | warning | error
-    responses_available: List[str] = Field(default_factory=list)
-    alert_parameters: List[Dict[str, Any]] = Field(default_factory=list)
+    display: dict[str, Any] | None = None
+    tier: str = "info"  # info | warning | error
+    responses_available: list[str] = Field(default_factory=list)
+    alert_parameters: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AlertResponse(BaseModel):
@@ -205,43 +212,45 @@ class AlertResponse(BaseModel):
 # Building map
 # ---------------------------------------------------------------------------
 
+
 class GraphVertex(BaseModel):
     x: float
     y: float
     name: str = ""
-    params: List[Dict[str, Any]] = Field(default_factory=list)
+    params: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class GraphEdge(BaseModel):
     v1_idx: int
     v2_idx: int
-    params: List[Dict[str, Any]] = Field(default_factory=list)
+    params: list[dict[str, Any]] = Field(default_factory=list)
     edge_type: int = 0
 
 
 class NavGraph(BaseModel):
     name: str
-    vertices: List[GraphVertex] = Field(default_factory=list)
-    edges: List[GraphEdge] = Field(default_factory=list)
-    params: List[Dict[str, Any]] = Field(default_factory=list)
+    vertices: list[GraphVertex] = Field(default_factory=list)
+    edges: list[GraphEdge] = Field(default_factory=list)
+    params: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class Level(BaseModel):
     name: str
     elevation: float = 0.0
-    nav_graphs: List[NavGraph] = Field(default_factory=list)
-    images: List[Any] = Field(default_factory=list)
+    nav_graphs: list[NavGraph] = Field(default_factory=list)
+    images: list[Any] = Field(default_factory=list)
 
 
 class BuildingMap(BaseModel):
     name: str
-    levels: List[Level] = Field(default_factory=list)
-    lifts: List[Any] = Field(default_factory=list)
+    levels: list[Level] = Field(default_factory=list)
+    lifts: list[Any] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
 # Dispensers / Ingestors
 # ---------------------------------------------------------------------------
+
 
 class Dispenser(BaseModel):
     guid: str

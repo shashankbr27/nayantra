@@ -3,9 +3,8 @@ tests/test_rmf_models.py
 
 Tests for the Pydantic RMF data models.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from nayantra.rmf_client.models import (
     Alert,
@@ -26,10 +25,10 @@ from nayantra.rmf_client.models import (
     TaskStatus,
 )
 
-
 # ---------------------------------------------------------------------------
 # Location2D
 # ---------------------------------------------------------------------------
+
 
 def test_location_defaults():
     loc = Location2D(x=1.0, y=2.0, yaw=0.5)
@@ -46,6 +45,7 @@ def test_location_full():
 # ---------------------------------------------------------------------------
 # RobotStatus
 # ---------------------------------------------------------------------------
+
 
 def test_robot_status_defaults():
     r = RobotStatus(name="r1")
@@ -69,6 +69,7 @@ def test_robot_status_with_location():
 # FleetState
 # ---------------------------------------------------------------------------
 
+
 def test_fleet_state_empty_robots():
     f = FleetState(name="fleet_a")
     assert f.robots == {}
@@ -84,6 +85,7 @@ def test_fleet_state_with_robots():
 # ---------------------------------------------------------------------------
 # Task models
 # ---------------------------------------------------------------------------
+
 
 def test_task_priority_defaults():
     p = TaskPriority()
@@ -126,6 +128,7 @@ def test_task_status_values():
 # Door models
 # ---------------------------------------------------------------------------
 
+
 def test_door_state_defaults():
     d = DoorState(name="main_door")
     assert d.current_mode.value == DoorMode.CLOSED
@@ -140,6 +143,7 @@ def test_door_mode_enum():
 # ---------------------------------------------------------------------------
 # Lift models
 # ---------------------------------------------------------------------------
+
 
 def test_lift_state_defaults():
     ls = LiftState(name="lift_1")
@@ -156,6 +160,7 @@ def test_lift_request_defaults():
 # ---------------------------------------------------------------------------
 # Alert
 # ---------------------------------------------------------------------------
+
 
 def test_alert_minimal():
     a = Alert(id="alert-001")
@@ -177,6 +182,7 @@ def test_alert_full():
 # ---------------------------------------------------------------------------
 # BuildingMap
 # ---------------------------------------------------------------------------
+
 
 def test_building_map_defaults():
     bm = BuildingMap(name="Warehouse")

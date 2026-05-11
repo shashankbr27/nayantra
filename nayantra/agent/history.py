@@ -20,6 +20,7 @@ Usage:
     recent = await store.recent(limit=20)
     stats  = await store.stats()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,9 +29,9 @@ import logging
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from nayantra.agent.models import MissionResult, StepResult, StepStatus
+from nayantra.agent.models import MissionResult
 
 logger = logging.getLogger("rmf.history")
 
@@ -40,7 +41,7 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "missions.db"
 class MissionStore:
     """Async-friendly SQLite store for mission history."""
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         self._db_path = db_path or DEFAULT_DB_PATH
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
@@ -134,26 +135,24 @@ class MissionStore:
     # Read
     # ------------------------------------------------------------------
 
-    async def recent(self, limit: int = 50) -> List[Dict[str, Any]]:
+    async def recent(self, limit: int = 50) -> list[dict[str, Any]]:
         """Return the most recent missions (lightweight, no steps)."""
         return await asyncio.to_thread(self._recent_sync, limit)
 
-    def _recent_sync(self, limit: int) -> List[Dict[str, Any]]:
+    def _recent_sync(self, limit: int) -> list[dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM missions ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()
         return [dict(r) for r in rows]
 
-    async def get(self, mission_id: str) -> Optional[Dict[str, Any]]:
+    async def get(self, mission_id: str) -> dict[str, Any] | None:
         """Return a full mission record including all steps."""
         return await asyncio.to_thread(self._get_sync, mission_id)
 
-    def _get_sync(self, mission_id: str) -> Optional[Dict[str, Any]]:
+    def _get_sync(self, mission_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM missions WHERE id = ?", (mission_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM missions WHERE id = ?", (mission_id,)).fetchone()
             if not row:
                 return None
             mission = dict(row)
@@ -164,11 +163,11 @@ class MissionStore:
             mission["steps"] = [dict(s) for s in steps]
         return mission
 
-    async def search(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def search(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Full-text search over mission commands."""
         return await asyncio.to_thread(self._search_sync, query, limit)
 
-    def _search_sync(self, query: str, limit: int) -> List[Dict[str, Any]]:
+    def _search_sync(self, query: str, limit: int) -> list[dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM missions WHERE command LIKE ? ORDER BY created_at DESC LIMIT ?",
@@ -180,15 +179,15 @@ class MissionStore:
     # Analytics
     # ------------------------------------------------------------------
 
-    async def stats(self) -> Dict[str, Any]:
+    async def stats(self) -> dict[str, Any]:
         """Return aggregate statistics for the dashboard."""
         return await asyncio.to_thread(self._stats_sync)
 
-    def _stats_sync(self) -> Dict[str, Any]:
+    def _stats_sync(self) -> dict[str, Any]:
         with self._connect() as conn:
-            total   = conn.execute("SELECT COUNT(*) FROM missions").fetchone()[0]
+            total = conn.execute("SELECT COUNT(*) FROM missions").fetchone()[0]
             success = conn.execute("SELECT COUNT(*) FROM missions WHERE success=1").fetchone()[0]
-            failed  = total - success
+            failed = total - success
 
             # Most-used tools
             top_tools = conn.execute("""
@@ -215,14 +214,14 @@ class MissionStore:
             ).fetchone()[0]
 
         return {
-            "total_missions":     total,
-            "successful":         success,
-            "failed":             failed,
-            "success_rate_pct":   round(success / total * 100, 1) if total > 0 else 0.0,
-            "avg_duration_ms":    round(avg_ms or 0, 1),
-            "top_tools":          [{"tool": r[0], "count": r[1]} for r in top_tools],
-            "last_24h_total":     recent_total,
-            "last_24h_failed":    recent_failed,
+            "total_missions": total,
+            "successful": success,
+            "failed": failed,
+            "success_rate_pct": round(success / total * 100, 1) if total > 0 else 0.0,
+            "avg_duration_ms": round(avg_ms or 0, 1),
+            "top_tools": [{"tool": r[0], "count": r[1]} for r in top_tools],
+            "last_24h_total": recent_total,
+            "last_24h_failed": recent_failed,
         }
 
     async def delete(self, mission_id: str) -> bool:

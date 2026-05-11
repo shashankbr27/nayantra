@@ -16,21 +16,22 @@ Example dependency chain:
   Step 1: dispatch_task          depends_on=0   (needs robot list result)
   Step 2: get_task_state         depends_on=1   (needs task_id from step 1)
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from collections import defaultdict, deque
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
-from nayantra.agent.models import AgentPlan, MissionResult, StepResult, StepStatus, ToolCall
+from nayantra.agent.models import AgentPlan, StepResult, ToolCall
 
 logger = logging.getLogger("nayantra.planner")
 
 
 class PlanValidationError(Exception):
     """Raised when a plan has a structural problem (cycles, bad indices)."""
+
     pass
 
 
@@ -76,7 +77,7 @@ class TaskPlanner:
         """Kahn's algorithm — returns True if the dependency graph has a cycle."""
         n = len(plan.steps)
         in_degree = [0] * n
-        adj: Dict[int, List[int]] = defaultdict(list)
+        adj: dict[int, list[int]] = defaultdict(list)
 
         for i, step in enumerate(plan.steps):
             if step.depends_on is not None:
@@ -99,7 +100,7 @@ class TaskPlanner:
     # Execution group builder (topological sort → parallel groups)
     # ------------------------------------------------------------------
 
-    def build_execution_groups(self, plan: AgentPlan) -> List[List[int]]:
+    def build_execution_groups(self, plan: AgentPlan) -> list[list[int]]:
         """
         Return a list of execution groups.
 
@@ -114,13 +115,13 @@ class TaskPlanner:
         n = len(plan.steps)
 
         # Compute depth of each node
-        depth: List[int] = [0] * n
+        depth: list[int] = [0] * n
         for i, step in enumerate(plan.steps):
             if step.depends_on is not None:
                 depth[i] = depth[step.depends_on] + 1
 
         # Group by depth
-        groups: Dict[int, List[int]] = defaultdict(list)
+        groups: dict[int, list[int]] = defaultdict(list)
         for i in range(n):
             groups[depth[i]].append(i)
 
@@ -133,7 +134,7 @@ class TaskPlanner:
     def enrich_step(
         self,
         step: ToolCall,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> ToolCall:
         """
         Fill in missing parameters from context produced by prior steps.
@@ -154,7 +155,13 @@ class TaskPlanner:
             params["robot_name"] = context["robot_name"]
 
         # Inject task_id from context for task-monitoring tools
-        if step.tool in ("get_task_state", "get_task_log", "cancel_task", "resume_task", "interrupt_task"):
+        if step.tool in (
+            "get_task_state",
+            "get_task_log",
+            "cancel_task",
+            "resume_task",
+            "interrupt_task",
+        ):
             if "task_id" not in params and "task_id" in context:
                 params["task_id"] = context["task_id"]
 
@@ -190,12 +197,13 @@ class TaskPlanner:
 # Parallel execution helper used by the agent
 # ---------------------------------------------------------------------------
 
+
 async def execute_group_parallel(
-    steps: List[ToolCall],
-    indices: List[int],
-    execute_fn,          # async fn(step, index, context) -> StepResult
-    context: Dict[str, Any],
-) -> List[StepResult]:
+    steps: list[ToolCall],
+    indices: list[int],
+    execute_fn,  # async fn(step, index, context) -> StepResult
+    context: dict[str, Any],
+) -> list[StepResult]:
     """
     Execute a group of independent steps concurrently.
 
@@ -205,9 +213,6 @@ async def execute_group_parallel(
         execute_fn:  Coroutine function to run each step.
         context:     Shared mutable context (updated after each step).
     """
-    tasks = [
-        asyncio.create_task(execute_fn(steps[i], i, context))
-        for i in indices
-    ]
+    tasks = [asyncio.create_task(execute_fn(steps[i], i, context)) for i in indices]
     results = await asyncio.gather(*tasks, return_exceptions=False)
     return list(results)

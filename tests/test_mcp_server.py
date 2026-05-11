@@ -3,6 +3,7 @@ tests/test_mcp_server.py
 
 Tests for the MCP tool registry and tool execution.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -10,10 +11,10 @@ import pytest
 from nayantra.mcp.tools import TOOL_REGISTRY, execute_tool, get_all_tools
 from nayantra.rmf_client.client import OpenRMFClient
 
-
 # ---------------------------------------------------------------------------
 # Registry inspection
 # ---------------------------------------------------------------------------
+
 
 def test_tools_registered():
     assert len(get_all_tools()) > 0
@@ -27,8 +28,15 @@ def test_tool_schema_has_name_and_description():
 
 def test_expected_tools_present():
     names = {t["name"] for t in get_all_tools()}
-    required = {"list_robots", "dispatch_task", "get_task_state", "move_robot",
-                "list_doors", "list_lifts", "list_alerts"}
+    required = {
+        "list_robots",
+        "dispatch_task",
+        "get_task_state",
+        "move_robot",
+        "list_doors",
+        "list_lifts",
+        "list_alerts",
+    }
     missing = required - names
     assert not missing, f"Missing tools: {missing}"
 
@@ -42,6 +50,7 @@ def test_tool_registry_matches_get_all_tools():
 # ---------------------------------------------------------------------------
 # Tool execution (debug mode)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 async def debug_client():
