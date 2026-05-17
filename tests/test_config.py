@@ -12,7 +12,15 @@ def test_settings_instance():
 
 
 def test_default_llm_provider():
-    assert settings.LLM_PROVIDER in ("anthropic", "openai")
+    assert settings.LLM_PROVIDER in ("anthropic", "openai", "gemini")
+
+
+def test_gemini_fields_present():
+    assert hasattr(settings, "GEMINI_API_KEY")
+    assert hasattr(settings, "GEMINI_MODEL")
+    assert isinstance(settings.GEMINI_API_KEY, str)
+    assert isinstance(settings.GEMINI_MODEL, str)
+    assert settings.GEMINI_MODEL.startswith("gemini-")
 
 
 def test_mcp_server_port_is_int():

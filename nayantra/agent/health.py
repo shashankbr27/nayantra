@@ -124,6 +124,8 @@ class HealthChecker:
             issues.append("ANTHROPIC_API_KEY not set")
         if settings.LLM_PROVIDER == "openai" and not settings.OPENAI_API_KEY:
             issues.append("OPENAI_API_KEY not set")
+        if settings.LLM_PROVIDER == "gemini" and not settings.GEMINI_API_KEY:
+            issues.append("GEMINI_API_KEY not set")
         if not settings.OPENRMF_API_TOKEN:
             issues.append("OPENRMF_API_TOKEN not set")
         if settings.USE_AUTH and settings.JWT_SECRET == "rmfisawesome":

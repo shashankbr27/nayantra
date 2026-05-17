@@ -29,6 +29,7 @@ dependencies = [
     "httpx>=0.28",
     "anthropic>=0.40",
     "openai>=1.57",
+    "google-genai>=0.8",
     "PyJWT>=2.10",
     "tenacity>=9.0",
     "python-dotenv>=1.0",

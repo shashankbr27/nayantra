@@ -7,6 +7,7 @@ Application settings loaded from environment variables via pydantic-settings.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,12 +21,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # LLM
-    LLM_PROVIDER: str = "anthropic"
+    # LLM — provider must be one of: anthropic | openai | gemini
+    LLM_PROVIDER: Literal["anthropic", "openai", "gemini"] = "anthropic"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # MCP Server — defaults to loopback. Override to 0.0.0.0 inside Docker / for LAN.
     MCP_SERVER_URL: str = "http://localhost:7000"

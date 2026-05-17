@@ -106,6 +106,27 @@ async def test_check_config_fails_without_api_key(checker, monkeypatch):
     assert "ANTHROPIC_API_KEY" in result.message
 
 
+@pytest.mark.asyncio
+async def test_check_config_fails_without_gemini_key(checker, monkeypatch):
+    monkeypatch.setattr("nayantra.agent.health.settings.LLM_PROVIDER", "gemini")
+    monkeypatch.setattr("nayantra.agent.health.settings.GEMINI_API_KEY", "")
+    monkeypatch.setattr("nayantra.agent.health.settings.OPENRMF_API_TOKEN", "tok")
+    monkeypatch.setattr("nayantra.agent.health.settings.USE_AUTH", False)
+    result = await checker._check_config()
+    assert result.ok is False
+    assert "GEMINI_API_KEY" in result.message
+
+
+@pytest.mark.asyncio
+async def test_check_config_passes_with_gemini_key(checker, monkeypatch):
+    monkeypatch.setattr("nayantra.agent.health.settings.LLM_PROVIDER", "gemini")
+    monkeypatch.setattr("nayantra.agent.health.settings.GEMINI_API_KEY", "AIza-fake-key")
+    monkeypatch.setattr("nayantra.agent.health.settings.OPENRMF_API_TOKEN", "tok")
+    monkeypatch.setattr("nayantra.agent.health.settings.USE_AUTH", False)
+    result = await checker._check_config()
+    assert result.ok is True
+
+
 # ---------------------------------------------------------------------------
 # MCP server check
 # ---------------------------------------------------------------------------

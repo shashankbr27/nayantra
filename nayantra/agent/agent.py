@@ -2,7 +2,7 @@
 nayantra/agent/agent.py
 
 Core AI Agent:
-  - Supports Anthropic Claude and OpenAI GPT-4o as backends
+  - Supports Anthropic Claude, OpenAI GPT-4o, and Google Gemini as backends
   - Uses structured output / tool-use APIs for deterministic planning
   - Delegates step ordering and parallelism to TaskPlanner
   - Executes multi-step plans against the MCP server with retry
@@ -67,7 +67,7 @@ Rules:
 
 
 # ---------------------------------------------------------------------------
-# Tool-schema converters (shared between Claude and OpenAI code paths)
+# Tool-schema converters (shared between Claude, OpenAI, and Gemini code paths)
 # ---------------------------------------------------------------------------
 
 
@@ -98,6 +98,26 @@ def to_openai_tool(tool: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def to_gemini_tool(tool: dict[str, Any]) -> dict[str, Any]:
+    """
+    Convert an MCP tool schema to Gemini function-declaration format.
+
+    Gemini rejects empty `parameters` schemas, so for parameter-less tools
+    we omit the field entirely.
+    """
+    decl: dict[str, Any] = {
+        "name": tool["name"],
+        "description": tool.get("description", ""),
+    }
+    params = tool.get("parameters") or {}
+    if params:
+        decl["parameters"] = {
+            "type": "object",
+            "properties": params,
+        }
+    return decl
+
+
 class RMFAgent:
     """LLM-powered agent that translates natural language into RMF fleet operations."""
 
@@ -111,18 +131,30 @@ class RMFAgent:
 
     def _setup_llm_client(self) -> None:
         """Initialise the appropriate LLM client based on config."""
-        if settings.LLM_PROVIDER == "anthropic":
+        provider = settings.LLM_PROVIDER
+        if provider == "anthropic":
             import anthropic  # type: ignore
 
             self._llm_provider = "anthropic"
             self._anthropic = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             logger.info(f"LLM: Anthropic {settings.ANTHROPIC_MODEL}")
-        else:
+        elif provider == "gemini":
+            from google import genai  # type: ignore
+
+            self._llm_provider = "gemini"
+            self._gemini = genai.Client(api_key=settings.GEMINI_API_KEY)
+            logger.info(f"LLM: Gemini {settings.GEMINI_MODEL}")
+        elif provider == "openai":
             from openai import AsyncOpenAI  # type: ignore
 
             self._llm_provider = "openai"
             self._openai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
             logger.info(f"LLM: OpenAI {settings.OPENAI_MODEL}")
+        else:
+            raise ValueError(
+                f"Unknown LLM_PROVIDER: {provider!r}. "
+                "Must be one of: anthropic, openai, gemini."
+            )
 
     # ------------------------------------------------------------------
     # Tool discovery
@@ -190,6 +222,44 @@ class RMFAgent:
 
         return AgentPlan(steps=steps, direct_answer=direct_answer if not steps else None)
 
+    async def _plan_with_gemini(self, command: str, tools: list[dict[str, Any]]) -> AgentPlan:
+        """Use Gemini function-calling to create a structured plan."""
+        function_declarations = [to_gemini_tool(t) for t in tools]
+        gemini_tools = [{"function_declarations": function_declarations}]
+
+        resp = await self._gemini.aio.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=command,
+            config={
+                "system_instruction": SYSTEM_PROMPT,
+                "tools": gemini_tools,
+                "temperature": 0,
+            },
+        )
+
+        steps: list[ToolCall] = []
+        direct_answer: str | None = None
+
+        candidates = getattr(resp, "candidates", None) or []
+        for cand in candidates:
+            content = getattr(cand, "content", None)
+            for part in getattr(content, "parts", []) or []:
+                fc = getattr(part, "function_call", None)
+                if fc and getattr(fc, "name", None):
+                    steps.append(
+                        ToolCall(
+                            tool=fc.name,
+                            parameters=dict(fc.args) if fc.args else {},
+                            reason=f"Gemini selected {fc.name}",
+                        )
+                    )
+                else:
+                    text = getattr(part, "text", None)
+                    if text and text.strip():
+                        direct_answer = text.strip()
+
+        return AgentPlan(steps=steps, direct_answer=direct_answer if not steps else None)
+
     async def _plan_with_openai(self, command: str, tools: list[dict[str, Any]]) -> AgentPlan:
         """Use GPT-4o function-calling to create a structured plan."""
         oai_tools = [to_openai_tool(t) for t in tools]
@@ -229,8 +299,9 @@ class RMFAgent:
         tools = await self._get_tools()
         if self._llm_provider == "anthropic":
             return await self._plan_with_anthropic(command, tools)
-        else:
-            return await self._plan_with_openai(command, tools)
+        if self._llm_provider == "gemini":
+            return await self._plan_with_gemini(command, tools)
+        return await self._plan_with_openai(command, tools)
 
     # ------------------------------------------------------------------
     # Execution
@@ -395,18 +466,29 @@ class RMFAgent:
                     messages=[{"role": "user", "content": prompt}],
                 )
                 return resp.content[0].text.strip()
-            else:
-                resp = await self._openai.chat.completions.create(
-                    model=settings.OPENAI_MODEL,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.5,
-                    max_tokens=256,
+            if self._llm_provider == "gemini":
+                resp = await self._gemini.aio.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=prompt,
+                    config={"temperature": 0.5, "max_output_tokens": 256},
                 )
-                return resp.choices[0].message.content.strip()
+                text = getattr(resp, "text", None) or ""
+                return text.strip() or self._fallback_summary(mission)
+            resp = await self._openai.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.5,
+                max_tokens=256,
+            )
+            return resp.choices[0].message.content.strip()
         except Exception as exc:
             logger.error(f"Summary generation failed: {exc}")
-            status = "successfully" if mission.success else "with errors"
-            return f"Mission completed {status} in {len(mission.steps)} steps."
+            return self._fallback_summary(mission)
+
+    @staticmethod
+    def _fallback_summary(mission: MissionResult) -> str:
+        status = "successfully" if mission.success else "with errors"
+        return f"Mission completed {status} in {len(mission.steps)} steps."
 
     # ------------------------------------------------------------------
     # Public entry point
