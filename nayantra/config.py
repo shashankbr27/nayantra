@@ -15,8 +15,11 @@ _ROOT = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
+    # Pydantic-settings reads the first .env file it finds in this tuple.
+    # We accept both the project-root .env (what scripts/setup.* creates and
+    # what local dev uses) and config/.env (a legacy / Docker-style location).
     model_config = SettingsConfigDict(
-        env_file=str(_ROOT / "config" / ".env"),
+        env_file=(str(_ROOT / ".env"), str(_ROOT / "config" / ".env")),
         env_file_encoding="utf-8",
         extra="ignore",
     )

@@ -421,9 +421,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('rmfUrl').textContent   = CONFIG.rmfUrl.replace('http://','');
 
   checkConnection();
+  bootstrapFleetAndMap();
   setInterval(checkConnection, 10000);
   setInterval(refreshFleet, 8000);
-  drawMap();
 
   document.getElementById('cmdInput').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !running) sendCommand();
@@ -454,21 +454,72 @@ function setConnected(ok, label='') {
 // ═══════════════════════════════════════════════════════════
 // Fleet refresh
 // ═══════════════════════════════════════════════════════════
+// Bootstrap on connect / reconnect: pull fleet + map together.
+async function bootstrapFleetAndMap() {
+  await Promise.all([refreshFleet(), refreshBuildingMap()]);
+  drawMap();
+}
+
+// Call a single MCP tool and return its raw `result` field.
+async function callTool(name, params = {}) {
+  const resp = await fetch(`${CONFIG.mcpUrl}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool: name, parameters: params }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!resp.ok) throw new Error(`MCP ${name} -> HTTP ${resp.status}`);
+  const json = await resp.json();
+  return json.result;
+}
+
 async function refreshFleet() {
   try {
-    const r = await fetch(`${CONFIG.mcpUrl}/tools`, { signal: AbortSignal.timeout(3000) });
-    if (!r.ok) throw new Error('tools fetch failed');
-  } catch { /* silently skip when MCP is down */ }
+    const result = await callTool('list_robots');
+    const fleets = (result && (result.data ?? result)) || [];
+    const next = [];
+    for (const fleet of fleets) {
+      for (const [name, r] of Object.entries(fleet.robots || {})) {
+        next.push({
+          name,
+          fleet:   fleet.name,
+          status:  r.status || 'idle',
+          battery: typeof r.battery === 'number' ? r.battery : 0,
+          x:       r.location?.x ?? 0,
+          y:       r.location?.y ?? 0,
+        });
+      }
+    }
+    robots = next;
+    renderRobots();
+    document.getElementById('statTasks').textContent  =
+      robots.filter(r => r.status === 'working').length;
+    document.getElementById('statAlerts').textContent = '0';
+    drawMap();
+  } catch (err) {
+    addLog('err', `Fleet fetch failed: ${err.message}`);
+  }
+}
 
-  // Simulate fleet data (replace with real /fleets call when live)
-  robots = [
-    { name: 'turtlebot3_1', fleet: 'turtlebot_fleet', status: 'idle',    battery: 0.94, x: 0.0, y: 0.0 },
-    { name: 'turtlebot3_2', fleet: 'turtlebot_fleet', status: 'charging', battery: 0.61, x: 3.2, y: 1.5 },
-  ];
-  renderRobots();
-  document.getElementById('statTasks').textContent   = robots.filter(r => r.status === 'working').length;
-  document.getElementById('statAlerts').textContent  = '0';
-  drawMap();
+let mapWaypoints = [];
+
+async function refreshBuildingMap() {
+  try {
+    const result = await callTool('get_building_map');
+    const map = (result && (result.data ?? result)) || {};
+    const points = [];
+    for (const lvl of map.levels || []) {
+      for (const g of lvl.nav_graphs || []) {
+        for (const v of g.vertices || []) {
+          if (v && v.name) points.push({ name: v.name, x: v.x, y: v.y });
+        }
+      }
+    }
+    mapWaypoints = points;
+  } catch (err) {
+    addLog('err', `Building map fetch failed: ${err.message}`);
+    mapWaypoints = [];
+  }
 }
 
 function renderRobots() {
@@ -520,11 +571,9 @@ async function sendCommand() {
   addLog('step', `▶ ${cmd}`);
 
   try {
-    const resp = await fetch(`${CONFIG.agentUrl}/command/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: cmd }),
-    });
+    // Agent API exposes:  GET /stream?command=...   for SSE streaming
+    const streamUrl = `${CONFIG.agentUrl}/stream?command=${encodeURIComponent(cmd)}`;
+    const resp = await fetch(streamUrl, { method: 'GET' });
 
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
@@ -555,7 +604,8 @@ async function sendCommand() {
     addLog('err', `Error: ${err.message}`);
     // Fallback: blocking POST
     try {
-      const resp = await fetch(`${CONFIG.agentUrl}/command`, {
+      // Agent API exposes:  POST /run   { command }
+      const resp = await fetch(`${CONFIG.agentUrl}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: cmd }),
@@ -715,17 +765,8 @@ function drawMap() {
   ctx.lineWidth = 2;
   ctx.strokeRect(wx(-7), wy(4), 14*scale, 8*scale);
 
-  // Waypoints
-  const waypoints = [
-    { name: 'charging_dock', x: -5, y: -2 },
-    { name: 'zone_a',        x: -3, y:  2 },
-    { name: 'zone_b',        x:  3, y:  2 },
-    { name: 'zone_c',        x:  0, y: -2 },
-    { name: 'pick_station',  x: -5, y:  2 },
-    { name: 'drop_station',  x:  5, y: -2 },
-  ];
-
-  waypoints.forEach(wp => {
+  // Waypoints come from the building_map endpoint (see refreshBuildingMap).
+  mapWaypoints.forEach(wp => {
     const px = wx(wp.x), py = wy(wp.y);
     ctx.beginPath();
     ctx.arc(px, py, 6, 0, Math.PI*2);

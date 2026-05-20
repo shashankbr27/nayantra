@@ -124,9 +124,23 @@ class OpenRMFClient:
                                 "name": "turtlebot3_1",
                                 "status": "idle",
                                 "task_id": "",
-                                "battery": 0.95,
+                                "battery": 0.94,
                                 "location": {"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"},
-                            }
+                            },
+                            "turtlebot3_2": {
+                                "name": "turtlebot3_2",
+                                "status": "charging",
+                                "task_id": "",
+                                "battery": 0.61,
+                                "location": {"x": 3.2, "y": 1.5, "yaw": 0.0, "level_name": "L1"},
+                            },
+                            "turtlebot3_3": {
+                                "name": "turtlebot3_3",
+                                "status": "working",
+                                "task_id": "sim-task-001",
+                                "battery": 0.78,
+                                "location": {"x": -3.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
+                            },
                         },
                     }
                 ]
@@ -294,6 +308,18 @@ class OpenRMFClient:
 
     async def get_building_map(self) -> Any:
         if self.debug:
+            # Vertices mirror WAREHOUSE_WAYPOINTS in ros2_adapter/fleet_adapter.py
+            # so the dashboard map matches what the fleet adapter recognises.
+            vertices = [
+                {"x": -5.0, "y": -2.0, "name": "charging_dock"},
+                {"x": -3.0, "y":  2.0, "name": "zone_a"},
+                {"x":  3.0, "y":  2.0, "name": "zone_b"},
+                {"x":  0.0, "y": -2.0, "name": "zone_c"},
+                {"x": -5.0, "y":  2.0, "name": "pick_station_1"},
+                {"x":  5.0, "y": -2.0, "name": "drop_station_1"},
+                {"x":  0.0, "y":  0.0, "name": "elevator_lobby"},
+                {"x": -6.0, "y":  0.0, "name": "entrance"},
+            ]
             return self._sim(
                 {
                     "name": "SimWarehouse",
@@ -301,7 +327,9 @@ class OpenRMFClient:
                         {
                             "name": "L1",
                             "elevation": 0.0,
-                            "nav_graphs": [{"name": "0", "vertices": [], "edges": []}],
+                            "nav_graphs": [
+                                {"name": "0", "vertices": vertices, "edges": []}
+                            ],
                         }
                     ],
                 }

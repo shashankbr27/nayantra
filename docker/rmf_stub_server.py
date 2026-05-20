@@ -34,9 +34,19 @@ def get_fleets():
         "robots": {
             "turtlebot3_1": {
                 "name": "turtlebot3_1", "status": "idle",
-                "battery": 0.95, "task_id": "",
+                "battery": 0.94, "task_id": "",
                 "location": {"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"},
-            }
+            },
+            "turtlebot3_2": {
+                "name": "turtlebot3_2", "status": "charging",
+                "battery": 0.61, "task_id": "",
+                "location": {"x": 3.2, "y": 1.5, "yaw": 0.0, "level_name": "L1"},
+            },
+            "turtlebot3_3": {
+                "name": "turtlebot3_3", "status": "working",
+                "battery": 0.78, "task_id": "sim-task-001",
+                "location": {"x": -3.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
+            },
         },
     }])
 
@@ -93,9 +103,23 @@ def get_alerts():
 
 @app.get("/building_map")
 def get_building_map():
+    # Mirrors WAREHOUSE_WAYPOINTS in nayantra/ros2_adapter/fleet_adapter.py
+    vertices = [
+        {"x": -5.0, "y": -2.0, "name": "charging_dock"},
+        {"x": -3.0, "y":  2.0, "name": "zone_a"},
+        {"x":  3.0, "y":  2.0, "name": "zone_b"},
+        {"x":  0.0, "y": -2.0, "name": "zone_c"},
+        {"x": -5.0, "y":  2.0, "name": "pick_station_1"},
+        {"x":  5.0, "y": -2.0, "name": "drop_station_1"},
+        {"x":  0.0, "y":  0.0, "name": "elevator_lobby"},
+        {"x": -6.0, "y":  0.0, "name": "entrance"},
+    ]
     return _ok({
         "name": "SimWarehouse",
-        "levels": [{"name": "L1", "elevation": 0.0, "nav_graphs": []}],
+        "levels": [{
+            "name": "L1", "elevation": 0.0,
+            "nav_graphs": [{"name": "0", "vertices": vertices, "edges": []}],
+        }],
     })
 
 
