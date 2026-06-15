@@ -312,13 +312,13 @@ class OpenRMFClient:
             # so the dashboard map matches what the fleet adapter recognises.
             vertices = [
                 {"x": -5.0, "y": -2.0, "name": "charging_dock"},
-                {"x": -3.0, "y":  2.0, "name": "zone_a"},
-                {"x":  3.0, "y":  2.0, "name": "zone_b"},
-                {"x":  0.0, "y": -2.0, "name": "zone_c"},
-                {"x": -5.0, "y":  2.0, "name": "pick_station_1"},
-                {"x":  5.0, "y": -2.0, "name": "drop_station_1"},
-                {"x":  0.0, "y":  0.0, "name": "elevator_lobby"},
-                {"x": -6.0, "y":  0.0, "name": "entrance"},
+                {"x": -3.0, "y": 2.0, "name": "zone_a"},
+                {"x": 3.0, "y": 2.0, "name": "zone_b"},
+                {"x": 0.0, "y": -2.0, "name": "zone_c"},
+                {"x": -5.0, "y": 2.0, "name": "pick_station_1"},
+                {"x": 5.0, "y": -2.0, "name": "drop_station_1"},
+                {"x": 0.0, "y": 0.0, "name": "elevator_lobby"},
+                {"x": -6.0, "y": 0.0, "name": "entrance"},
             ]
             return self._sim(
                 {
@@ -327,9 +327,7 @@ class OpenRMFClient:
                         {
                             "name": "L1",
                             "elevation": 0.0,
-                            "nav_graphs": [
-                                {"name": "0", "vertices": vertices, "edges": []}
-                            ],
+                            "nav_graphs": [{"name": "0", "vertices": vertices, "edges": []}],
                         }
                     ],
                 }

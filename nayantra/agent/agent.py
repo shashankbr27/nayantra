@@ -152,8 +152,7 @@ class RMFAgent:
             logger.info(f"LLM: OpenAI {settings.OPENAI_MODEL}")
         else:
             raise ValueError(
-                f"Unknown LLM_PROVIDER: {provider!r}. "
-                "Must be one of: anthropic, openai, gemini."
+                f"Unknown LLM_PROVIDER: {provider!r}. Must be one of: anthropic, openai, gemini."
             )
 
     # ------------------------------------------------------------------
