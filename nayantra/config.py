@@ -73,6 +73,15 @@ class Settings(BaseSettings):
     ZENOH_ROUTER_URL: str = "tcp/localhost:7447"
     ZENOH_MODE: str = "peer"
 
+    # RMF bridge (RMF-compatible control plane backed by Nav2, replaces the stub)
+    ROS2_ENABLED: bool = False
+    RMF_BRIDGE_HOST: str = "127.0.0.1"
+    RMF_BRIDGE_PORT: int = 8000
+    FLEET_NAME: str = "warehouse_fleet"
+    ROBOT_NAME: str = "carter1"
+    # Optional JSON file: {"waypoint_name": [x, y, yaw], ...} — overrides built-ins
+    WAYPOINTS_FILE: str = str(_ROOT / "config" / "waypoints.json")
+
     # Misc
     DEBUG_MODE: bool = True
     LOGGING_LEVEL: str = "INFO"
