@@ -20,16 +20,15 @@ Usage:
     ])
     await spawner.start_state_publisher()   # non-blocking
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from nayantra.isaac_sim.sim_bridge import IsaacSimBridge
-from nayantra.config import settings
 
 logger = logging.getLogger("rmf.spawner")
 
@@ -37,9 +36,11 @@ logger = logging.getLogger("rmf.spawner")
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RobotConfig:
     """Configuration for a single simulated robot."""
+
     name: str
     fleet: str = "turtlebot_fleet"
     usd_path: str = "/Isaac/Robots/Turtlebot/turtlebot3_burger.usd"
@@ -51,6 +52,7 @@ class RobotConfig:
 @dataclass
 class RobotState:
     """Live state of a simulated robot."""
+
     name: str
     fleet: str
     x: float = 0.0
@@ -58,7 +60,7 @@ class RobotState:
     yaw: float = 0.0
     level: str = "L1"
     battery: float = 1.0
-    status: str = "idle"    # idle | charging | working | error
+    status: str = "idle"  # idle | charging | working | error
     task_id: str = ""
     last_updated: float = field(default_factory=time.time)
 
@@ -66,6 +68,7 @@ class RobotState:
 # ---------------------------------------------------------------------------
 # Spawner
 # ---------------------------------------------------------------------------
+
 
 class RobotSpawner:
     """
@@ -77,8 +80,8 @@ class RobotSpawner:
 
     def __init__(self) -> None:
         self._bridge = IsaacSimBridge()
-        self._robots: Dict[str, RobotState] = {}
-        self._publisher_task: Optional[asyncio.Task] = None
+        self._robots: dict[str, RobotState] = {}
+        self._publisher_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -102,7 +105,7 @@ class RobotSpawner:
     # Fleet spawn / despawn
     # ------------------------------------------------------------------
 
-    async def spawn_fleet(self, configs: List[RobotConfig]) -> Dict[str, bool]:
+    async def spawn_fleet(self, configs: list[RobotConfig]) -> dict[str, bool]:
         """
         Spawn multiple robots concurrently.
 
@@ -113,7 +116,7 @@ class RobotSpawner:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return {
             cfg.name: not isinstance(result, Exception)
-            for cfg, result in zip(configs, results)
+            for cfg, result in zip(configs, results, strict=True)
         }
 
     async def _spawn_one(self, cfg: RobotConfig) -> None:
@@ -150,10 +153,10 @@ class RobotSpawner:
     async def navigate(
         self,
         robot_name: str,
-        waypoint: Optional[str] = None,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-    ) -> Dict:
+        waypoint: str | None = None,
+        x: float | None = None,
+        y: float | None = None,
+    ) -> dict:
         """Send a navigation goal to a named robot."""
         if robot_name not in self._robots:
             raise KeyError(f"Robot {robot_name!r} is not spawned")
@@ -178,7 +181,7 @@ class RobotSpawner:
     # State polling & publishing
     # ------------------------------------------------------------------
 
-    async def poll_states(self) -> Dict[str, RobotState]:
+    async def poll_states(self) -> dict[str, RobotState]:
         """
         Query Isaac Sim for the current pose of every spawned robot
         and update the internal state registry.
@@ -207,9 +210,7 @@ class RobotSpawner:
             logger.warning("State publisher already running")
             return
 
-        self._publisher_task = asyncio.create_task(
-            self._publish_loop(interval_s)
-        )
+        self._publisher_task = asyncio.create_task(self._publish_loop(interval_s))
         logger.info(f"State publisher started (interval={interval_s}s)")
 
     async def _publish_loop(self, interval_s: float) -> None:
@@ -229,13 +230,13 @@ class RobotSpawner:
     # Accessors
     # ------------------------------------------------------------------
 
-    def get_state(self, robot_name: str) -> Optional[RobotState]:
+    def get_state(self, robot_name: str) -> RobotState | None:
         return self._robots.get(robot_name)
 
-    def list_robots(self) -> List[str]:
+    def list_robots(self) -> list[str]:
         return list(self._robots.keys())
 
-    def fleet_summary(self) -> Dict:
+    def fleet_summary(self) -> dict:
         """Return a dict suitable for JSON serialisation."""
         return {
             name: {

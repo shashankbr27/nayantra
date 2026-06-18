@@ -7,6 +7,7 @@ Usage:
     python -m scripts.generate_token                       # 24h admin token
     python -m scripts.generate_token --user alice --hours 8
 """
+
 from __future__ import annotations
 
 import argparse

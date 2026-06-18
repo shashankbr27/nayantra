@@ -85,6 +85,7 @@ Full deep-dive: [docs/architecture.md](docs/architecture.md).
 | 📡 **Zenoh Bridge** | Transparent LAN / WAN robot connectivity via Zenoh |
 | 🔄 **Multi-step Planning** | Agent plans and executes complex multi-robot missions |
 | 📊 **Real-time Streaming** | SSE + WebSocket live task status updates to the UI |
+| 🖥 **Trace-only Dashboard** | Web UI shows which MCP tools the agent chose, the params, and human-readable results. Robot visualization is handed off to **RViz 2** ([setup](docs/rviz_setup.md)). |
 | 🛡️ **JWT Auth** | Secure API access with configurable token signing |
 | 🐳 **Docker Compose** | One-command spin-up for the entire stack |
 | 🧪 **Stub-everything mode** | Runs on a laptop with no GPU, no RMF, no robot |
@@ -205,6 +206,28 @@ See [docs/getting_started.md](docs/getting_started.md) and [docs/isaac_sim_setup
 2. Enable the ROS 2 Bridge extension in Isaac Sim
 3. Run `scripts/isaac_sim_server.py` inside Isaac Sim's Script Editor
 4. Set `ISAAC_SIM_ENABLED=true` in `config/.env`
+
+---
+
+## 🛰 Visualization with RViz 2
+
+Nayantra's web dashboard is intentionally minimal: it shows the agent's
+MCP tool selection, parameters, and human-readable results. **Live robot
+visualization is handed off to RViz 2**, which subscribes to the
+standard `/tf`, `/map`, and `nav_msgs/Path` topics that Nav2 / the Isaac
+Sim ROS 2 Bridge already publish.
+
+```bash
+source /opt/ros/humble/setup.bash
+rviz2
+```
+
+Full setup, troubleshooting, and a recommended display list:
+[docs/rviz_setup.md](docs/rviz_setup.md).
+
+> Pure stub mode (`DEBUG_MODE=true`, no rclpy) has no ROS 2 graph for RViz
+> to subscribe to. In that mode, the dashboard's tool trace is the
+> intended view.
 
 ---
 

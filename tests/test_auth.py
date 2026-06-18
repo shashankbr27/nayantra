@@ -3,19 +3,20 @@ tests/test_auth.py
 
 Tests for the JWT auth module.
 """
+
 from __future__ import annotations
 
 import datetime
-import pytest
+
 import jwt
 
-from nayantra.mcp.auth import create_token, verify_token
 from nayantra.config import settings
-
+from nayantra.mcp.auth import create_token, verify_token
 
 # ---------------------------------------------------------------------------
 # Token creation
 # ---------------------------------------------------------------------------
+
 
 def test_create_token_returns_string():
     token = create_token()
@@ -53,6 +54,7 @@ def test_create_token_expiry_set():
 # Token verification — success
 # ---------------------------------------------------------------------------
 
+
 def test_verify_valid_token_returns_payload():
     token = create_token()
     payload = verify_token(token)
@@ -70,6 +72,7 @@ def test_verify_token_contains_username():
 # ---------------------------------------------------------------------------
 # Token verification — failures
 # ---------------------------------------------------------------------------
+
 
 def test_verify_expired_token_returns_none():
     payload = {

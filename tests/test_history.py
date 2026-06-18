@@ -4,18 +4,20 @@ tests/test_history.py
 Tests for the SQLite mission history persistence layer.
 Uses a tmp_path fixture so each test gets a clean in-memory-equivalent DB.
 """
+
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from nayantra.agent.history import MissionStore
 from nayantra.agent.models import MissionResult, StepResult, StepStatus
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_mission(
     command: str = "test command",
@@ -50,6 +52,7 @@ def store(tmp_path: Path) -> MissionStore:
 # ---------------------------------------------------------------------------
 # Save & retrieve
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_save_and_retrieve_mission(store):
@@ -106,6 +109,7 @@ async def test_save_mission_with_no_steps(store):
 # Recent listing
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_recent_returns_all_missions(store):
     for i in range(5):
@@ -136,6 +140,7 @@ async def test_recent_ordered_newest_first(store):
 # Search
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_search_finds_matching_command(store):
     await store.save(make_mission("send turtlebot to charging dock"))
@@ -162,6 +167,7 @@ async def test_search_case_insensitive_partial(store):
 # ---------------------------------------------------------------------------
 # Statistics
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_stats_total_count(store):
@@ -205,6 +211,7 @@ async def test_stats_top_tools(store):
 # Delete
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_delete_removes_mission(store):
     m = make_mission("to delete")
@@ -233,6 +240,7 @@ async def test_clear_removes_all_records(store):
 # Idempotency — re-saving same mission replaces record
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_resave_replaces_mission(store):
     m = make_mission("original")
@@ -245,4 +253,4 @@ async def test_resave_replaces_mission(store):
     record = await store.get(m.mission_id)
     assert record["summary"] == "updated summary"
     results = await store.recent()
-    assert len(results) == 1   # not duplicated
+    assert len(results) == 1  # not duplicated

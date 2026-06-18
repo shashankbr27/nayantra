@@ -33,13 +33,14 @@ Note:
   When ZENOH_ENABLED=false (LAN deployment) this module is never imported.
   Direct ROS 2 DDS handles all discovery — no Zenoh required.
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from nayantra.config import settings
 
@@ -49,12 +50,12 @@ logger = logging.getLogger("rmf.zenoh")
 # Topic map: (ros2_topic, zenoh_key, direction)
 # direction: "ros2→zenoh" | "zenoh→ros2" | "bidirectional"
 # ---------------------------------------------------------------------------
-TOPIC_MAP: List[Dict[str, str]] = [
-    {"ros2": "/rmf/fleet_state",   "zenoh": "rmf/fleet_state",   "dir": "ros2→zenoh"},
-    {"ros2": "/rmf/task_summary",  "zenoh": "rmf/task_summary",   "dir": "ros2→zenoh"},
-    {"ros2": "/rmf/door_states",   "zenoh": "rmf/door_states",    "dir": "bidirectional"},
-    {"ros2": "/rmf/lift_states",   "zenoh": "rmf/lift_states",    "dir": "bidirectional"},
-    {"ros2": "/rmf/cmd_vel",       "zenoh": "rmf/cmd_vel",        "dir": "zenoh→ros2"},
+TOPIC_MAP: list[dict[str, str]] = [
+    {"ros2": "/rmf/fleet_state", "zenoh": "rmf/fleet_state", "dir": "ros2→zenoh"},
+    {"ros2": "/rmf/task_summary", "zenoh": "rmf/task_summary", "dir": "ros2→zenoh"},
+    {"ros2": "/rmf/door_states", "zenoh": "rmf/door_states", "dir": "bidirectional"},
+    {"ros2": "/rmf/lift_states", "zenoh": "rmf/lift_states", "dir": "bidirectional"},
+    {"ros2": "/rmf/cmd_vel", "zenoh": "rmf/cmd_vel", "dir": "zenoh→ros2"},
 ]
 
 
@@ -110,7 +111,6 @@ class ZenohBridge:
 
     async def _bridge_loop(self) -> None:
         """Subscribe to Zenoh topics and relay to ROS 2 (and vice versa)."""
-        import zenoh  # type: ignore
 
         subscribers = []
         for mapping in TOPIC_MAP:
@@ -124,8 +124,7 @@ class ZenohBridge:
                 logger.debug(f"Subscribed Zenoh: {key}")
 
         logger.info(
-            f"Bridge active — relaying {len(TOPIC_MAP)} topic mappings. "
-            "Press Ctrl+C to stop."
+            f"Bridge active — relaying {len(TOPIC_MAP)} topic mappings. Press Ctrl+C to stop."
         )
         try:
             while self._running:
@@ -138,13 +137,11 @@ class ZenohBridge:
             self._session.close()
             logger.info("Zenoh bridge stopped")
 
-    def _on_zenoh_msg(self, sample: Any, mapping: Dict[str, str]) -> None:
+    def _on_zenoh_msg(self, sample: Any, mapping: dict[str, str]) -> None:
         """Called when a message arrives on a Zenoh key — relay to ROS 2."""
         try:
             payload = bytes(sample.payload).decode()
-            logger.debug(
-                f"Zenoh→ROS2 | {mapping['zenoh']} → {mapping['ros2']} | {payload[:80]}"
-            )
+            logger.debug(f"Zenoh→ROS2 | {mapping['zenoh']} → {mapping['ros2']} | {payload[:80]}")
             # In a full ROS 2 environment, publish to self._ros_node here.
             # This stub just logs the relay.
         except Exception as exc:
@@ -173,6 +170,7 @@ class ZenohBridge:
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="RMF Zenoh Bridge")

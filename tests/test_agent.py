@@ -3,16 +3,15 @@ tests/test_agent.py
 
 Unit tests for agent pipeline models and plan resolution.
 """
+
 from __future__ import annotations
 
-import pytest
-
 from nayantra.agent.models import AgentPlan, MissionResult, StepResult, StepStatus, ToolCall
-
 
 # ---------------------------------------------------------------------------
 # ToolCall
 # ---------------------------------------------------------------------------
+
 
 def test_tool_call_minimal():
     tc = ToolCall(tool="list_robots")
@@ -32,6 +31,7 @@ def test_tool_call_with_params():
 # AgentPlan
 # ---------------------------------------------------------------------------
 
+
 def test_agent_plan_empty():
     plan = AgentPlan()
     assert plan.steps == []
@@ -46,10 +46,12 @@ def test_agent_plan_direct_answer():
 
 
 def test_agent_plan_with_steps():
-    plan = AgentPlan(steps=[
-        ToolCall(tool="list_robots"),
-        ToolCall(tool="get_task_state", parameters={"task_id": "t1"}, depends_on=0),
-    ])
+    plan = AgentPlan(
+        steps=[
+            ToolCall(tool="list_robots"),
+            ToolCall(tool="get_task_state", parameters={"task_id": "t1"}, depends_on=0),
+        ]
+    )
     assert len(plan.steps) == 2
     assert plan.steps[1].depends_on == 0
 
@@ -57,6 +59,7 @@ def test_agent_plan_with_steps():
 # ---------------------------------------------------------------------------
 # StepResult
 # ---------------------------------------------------------------------------
+
 
 def test_step_result_success():
     sr = StepResult(step_index=0, tool="list_robots", status=StepStatus.SUCCESS)
@@ -84,6 +87,7 @@ def test_step_status_enum_values():
 # ---------------------------------------------------------------------------
 # MissionResult
 # ---------------------------------------------------------------------------
+
 
 def test_mission_result_defaults():
     mr = MissionResult(command="list all robots")

@@ -21,14 +21,14 @@ This module is mounted on the main FastAPI app:
     from nayantra.api.ws_monitor import router as ws_router
     app.include_router(ws_router)
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional, Set
-from weakref import WeakSet
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -40,12 +40,13 @@ router = APIRouter()
 # Connection manager
 # ---------------------------------------------------------------------------
 
+
 class ConnectionManager:
     """Manages a set of active WebSocket connections with topic subscriptions."""
 
     def __init__(self) -> None:
         # ws → set of subscribed topics
-        self._connections: Dict[WebSocket, Set[str]] = {}
+        self._connections: dict[WebSocket, set[str]] = {}
 
     async def connect(self, ws: WebSocket) -> None:
         await ws.accept()
@@ -56,7 +57,7 @@ class ConnectionManager:
         self._connections.pop(ws, None)
         logger.info(f"WS client disconnected. Total: {len(self._connections)}")
 
-    def subscribe(self, ws: WebSocket, topics: List[str]) -> None:
+    def subscribe(self, ws: WebSocket, topics: list[str]) -> None:
         if ws in self._connections:
             self._connections[ws] = set(topics)
 
@@ -89,12 +90,12 @@ class ConnectionManager:
 
 def _event_to_topic(event_type: str) -> str:
     mapping = {
-        "fleet_state":    "fleet",
-        "task_update":    "tasks",
-        "alert":          "alerts",
-        "mission_start":  "missions",
-        "mission_end":    "missions",
-        "mission_step":   "missions",
+        "fleet_state": "fleet",
+        "task_update": "tasks",
+        "alert": "alerts",
+        "mission_start": "missions",
+        "mission_end": "missions",
+        "mission_step": "missions",
     }
     return mapping.get(event_type, "*")
 
@@ -107,6 +108,7 @@ manager = ConnectionManager()
 # WebSocket endpoint
 # ---------------------------------------------------------------------------
 
+
 @router.websocket("/ws/fleet")
 async def fleet_websocket(ws: WebSocket):
     """
@@ -118,17 +120,21 @@ async def fleet_websocket(ws: WebSocket):
     await manager.connect(ws)
     try:
         # Send an immediate snapshot on connect
-        await manager.send_to(ws, "connected", {
-            "message": "Connected to Nayantra fleet monitor",
-            "subscribed_topics": list(manager._connections.get(ws, set())),
-        })
+        await manager.send_to(
+            ws,
+            "connected",
+            {
+                "message": "Connected to Nayantra fleet monitor",
+                "subscribed_topics": list(manager._connections.get(ws, set())),
+            },
+        )
 
         while True:
             try:
                 raw = await asyncio.wait_for(ws.receive_text(), timeout=30.0)
                 msg = json.loads(raw)
                 await _handle_client_message(ws, msg)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send heartbeat
                 await manager.send_to(ws, "heartbeat", {"ts": time.time()})
     except WebSocketDisconnect:
@@ -139,7 +145,7 @@ async def fleet_websocket(ws: WebSocket):
         manager.disconnect(ws)
 
 
-async def _handle_client_message(ws: WebSocket, msg: Dict[str, Any]) -> None:
+async def _handle_client_message(ws: WebSocket, msg: dict[str, Any]) -> None:
     msg_type = msg.get("type", "")
 
     if msg_type == "ping":
@@ -152,10 +158,14 @@ async def _handle_client_message(ws: WebSocket, msg: Dict[str, Any]) -> None:
 
     elif msg_type == "get_stats":
         # Return connection count and uptime
-        await manager.send_to(ws, "stats", {
-            "connected_clients": manager.count,
-            "uptime_s": time.time(),
-        })
+        await manager.send_to(
+            ws,
+            "stats",
+            {
+                "connected_clients": manager.count,
+                "uptime_s": time.time(),
+            },
+        )
 
     else:
         logger.debug(f"Unknown WS message type: {msg_type!r}")
@@ -165,7 +175,8 @@ async def _handle_client_message(ws: WebSocket, msg: Dict[str, Any]) -> None:
 # Event publisher helpers (called from agent/api.py)
 # ---------------------------------------------------------------------------
 
-async def publish_fleet_state(robots: List[Dict[str, Any]]) -> None:
+
+async def publish_fleet_state(robots: list[dict[str, Any]]) -> None:
     """Broadcast current fleet state to all subscribers."""
     await manager.broadcast("fleet_state", {"robots": robots})
 
@@ -185,13 +196,18 @@ async def publish_mission_start(mission_id: str, command: str) -> None:
 
 
 async def publish_mission_end(mission_id: str, success: bool, summary: str) -> None:
-    await manager.broadcast("mission_end", {
-        "mission_id": mission_id, "success": success, "summary": summary
-    })
+    await manager.broadcast(
+        "mission_end", {"mission_id": mission_id, "success": success, "summary": summary}
+    )
 
 
 async def publish_mission_step(mission_id: str, step_index: int, tool: str, status: str) -> None:
-    await manager.broadcast("mission_step", {
-        "mission_id": mission_id, "step_index": step_index,
-        "tool": tool, "status": status,
-    })
+    await manager.broadcast(
+        "mission_step",
+        {
+            "mission_id": mission_id,
+            "step_index": step_index,
+            "tool": tool,
+            "status": status,
+        },
+    )

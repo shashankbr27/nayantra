@@ -8,6 +8,7 @@ Usage:
     python -m nayantra.agent.main "list all robots"   # Single command
     python -m nayantra.agent.main --stream "..."      # Stream step-by-step events
 """
+
 from __future__ import annotations
 
 import argparse

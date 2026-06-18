@@ -10,12 +10,13 @@ Key improvements over the original:
   - Type-safe via Pydantic models
   - Proper resource cleanup via close()
 """
+
 from __future__ import annotations
 
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import httpx
 from tenacity import (
@@ -34,7 +35,7 @@ class OpenRMFClient:
     def __init__(
         self,
         api_url: str = "http://localhost:8000",
-        token: Optional[str] = None,
+        token: str | None = None,
         debug: bool = False,
         timeout: int = 30,
     ) -> None:
@@ -58,7 +59,7 @@ class OpenRMFClient:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _sim(self, data: Any) -> Dict[str, Any]:
+    def _sim(self, data: Any) -> dict[str, Any]:
         """Return a simulated success response in debug mode."""
         return {
             "source": "simulated",
@@ -84,7 +85,7 @@ class OpenRMFClient:
         wait=wait_exponential(min=1, max=8),
         reraise=True,
     )
-    async def _post(self, path: str, payload: Dict[str, Any]) -> Any:
+    async def _post(self, path: str, payload: dict[str, Any]) -> Any:
         logger.debug(f"POST {self.api_url}{path} body={payload}")
         resp = await self._http.post(path, json=payload)
         resp.raise_for_status()
@@ -114,31 +115,49 @@ class OpenRMFClient:
 
     async def get_fleets(self) -> Any:
         if self.debug:
-            return self._sim([
-                {
-                    "name": "turtlebot_fleet",
-                    "robots": {
-                        "turtlebot3_1": {
-                            "name": "turtlebot3_1",
-                            "status": "idle",
-                            "task_id": "",
-                            "battery": 0.95,
-                            "location": {"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"},
-                        }
-                    },
-                }
-            ])
+            return self._sim(
+                [
+                    {
+                        "name": "turtlebot_fleet",
+                        "robots": {
+                            "turtlebot3_1": {
+                                "name": "turtlebot3_1",
+                                "status": "idle",
+                                "task_id": "",
+                                "battery": 0.94,
+                                "location": {"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"},
+                            },
+                            "turtlebot3_2": {
+                                "name": "turtlebot3_2",
+                                "status": "charging",
+                                "task_id": "",
+                                "battery": 0.61,
+                                "location": {"x": 3.2, "y": 1.5, "yaw": 0.0, "level_name": "L1"},
+                            },
+                            "turtlebot3_3": {
+                                "name": "turtlebot3_3",
+                                "status": "working",
+                                "task_id": "sim-task-001",
+                                "battery": 0.78,
+                                "location": {"x": -3.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
+                            },
+                        },
+                    }
+                ]
+            )
         return await self._get("/fleets")
 
     async def get_robot_state(self, fleet_name: str, robot_name: str) -> Any:
         if self.debug:
-            return self._sim({
-                "name": robot_name,
-                "fleet": fleet_name,
-                "status": "idle",
-                "battery": 0.9,
-                "location": {"x": 1.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
-            })
+            return self._sim(
+                {
+                    "name": robot_name,
+                    "fleet": fleet_name,
+                    "status": "idle",
+                    "battery": 0.9,
+                    "location": {"x": 1.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
+                }
+            )
         return await self._get(f"/fleets/{fleet_name}/robots/{robot_name}")
 
     async def get_fleet_log(self, fleet_name: str) -> Any:
@@ -175,27 +194,27 @@ class OpenRMFClient:
             return self._sim({"task_id": task_id, "log": []})
         return await self._get(f"/tasks/{task_id}/log")
 
-    async def post_dispatch_task(self, payload: Dict[str, Any]) -> Any:
+    async def post_dispatch_task(self, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"task_id": str(uuid.uuid4()), "state": "queued"})
         return await self._post("/tasks/dispatch_task", payload)
 
-    async def post_cancel_task(self, payload: Dict[str, Any]) -> Any:
+    async def post_cancel_task(self, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"action": "cancelled", **payload})
         return await self._post("/tasks/cancel_task", payload)
 
-    async def post_resume_task(self, payload: Dict[str, Any]) -> Any:
+    async def post_resume_task(self, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"action": "resumed", **payload})
         return await self._post("/tasks/resume_task", payload)
 
-    async def post_interrupt_task(self, payload: Dict[str, Any]) -> Any:
+    async def post_interrupt_task(self, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"action": "interrupted", **payload})
         return await self._post("/tasks/interrupt_task", payload)
 
-    async def post_kill_task(self, payload: Dict[str, Any]) -> Any:
+    async def post_kill_task(self, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"action": "killed", **payload})
         return await self._post("/tasks/kill_task", payload)
@@ -214,7 +233,7 @@ class OpenRMFClient:
             return self._sim({"name": door_name, "current_mode": {"value": 0}})
         return await self._get(f"/doors/{door_name}/state")
 
-    async def post_door_request(self, door_name: str, payload: Dict[str, Any]) -> Any:
+    async def post_door_request(self, door_name: str, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"door": door_name, "requested_mode": payload.get("mode")})
         return await self._post(f"/doors/{door_name}/request", payload)
@@ -225,23 +244,29 @@ class OpenRMFClient:
 
     async def get_lifts(self) -> Any:
         if self.debug:
-            return self._sim([{"name": "lift_1", "current_floor": "L1", "available_floors": ["L1", "L2", "L3"]}])
+            return self._sim(
+                [{"name": "lift_1", "current_floor": "L1", "available_floors": ["L1", "L2", "L3"]}]
+            )
         return await self._get("/lifts")
 
     async def get_lift_state(self, lift_name: str) -> Any:
         if self.debug:
-            return self._sim({
-                "name": lift_name,
-                "current_floor": "L1",
-                "destination_floor": "L1",
-                "door_state": {"value": 0},
-                "motion_state": {"value": 0},
-            })
+            return self._sim(
+                {
+                    "name": lift_name,
+                    "current_floor": "L1",
+                    "destination_floor": "L1",
+                    "door_state": {"value": 0},
+                    "motion_state": {"value": 0},
+                }
+            )
         return await self._get(f"/lifts/{lift_name}/state")
 
-    async def post_lift_request(self, lift_name: str, payload: Dict[str, Any]) -> Any:
+    async def post_lift_request(self, lift_name: str, payload: dict[str, Any]) -> Any:
         if self.debug:
-            return self._sim({"lift": lift_name, "requested_floor": payload.get("destination_floor")})
+            return self._sim(
+                {"lift": lift_name, "requested_floor": payload.get("destination_floor")}
+            )
         return await self._post(f"/lifts/{lift_name}/request", payload)
 
     # ------------------------------------------------------------------
@@ -258,7 +283,7 @@ class OpenRMFClient:
             return self._sim({"id": alert_id, "type": "warning", "message": "Simulated alert"})
         return await self._get(f"/alerts/{alert_id}")
 
-    async def post_alert_response(self, alert_id: str, payload: Dict[str, Any]) -> Any:
+    async def post_alert_response(self, alert_id: str, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"alert_id": alert_id, "response": payload.get("response")})
         return await self._post(f"/alerts/{alert_id}/response", payload)
@@ -272,7 +297,7 @@ class OpenRMFClient:
             return self._sim({"triggered": False})
         return await self._get("/fire_alarm_trigger")
 
-    async def post_reset_fire_alarm_trigger(self, payload: Dict[str, Any]) -> Any:
+    async def post_reset_fire_alarm_trigger(self, payload: dict[str, Any]) -> Any:
         if self.debug:
             return self._sim({"action": "reset"})
         return await self._post("/fire_alarm_trigger/reset", payload)
@@ -283,16 +308,30 @@ class OpenRMFClient:
 
     async def get_building_map(self) -> Any:
         if self.debug:
-            return self._sim({
-                "name": "SimWarehouse",
-                "levels": [
-                    {
-                        "name": "L1",
-                        "elevation": 0.0,
-                        "nav_graphs": [{"name": "0", "vertices": [], "edges": []}],
-                    }
-                ],
-            })
+            # Vertices mirror WAREHOUSE_WAYPOINTS in ros2_adapter/fleet_adapter.py
+            # so the dashboard map matches what the fleet adapter recognises.
+            vertices = [
+                {"x": -5.0, "y": -2.0, "name": "charging_dock"},
+                {"x": -3.0, "y": 2.0, "name": "zone_a"},
+                {"x": 3.0, "y": 2.0, "name": "zone_b"},
+                {"x": 0.0, "y": -2.0, "name": "zone_c"},
+                {"x": -5.0, "y": 2.0, "name": "pick_station_1"},
+                {"x": 5.0, "y": -2.0, "name": "drop_station_1"},
+                {"x": 0.0, "y": 0.0, "name": "elevator_lobby"},
+                {"x": -6.0, "y": 0.0, "name": "entrance"},
+            ]
+            return self._sim(
+                {
+                    "name": "SimWarehouse",
+                    "levels": [
+                        {
+                            "name": "L1",
+                            "elevation": 0.0,
+                            "nav_graphs": [{"name": "0", "vertices": vertices, "edges": []}],
+                        }
+                    ],
+                }
+            )
         return await self._get("/building_map")
 
     # ------------------------------------------------------------------

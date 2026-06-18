@@ -3,11 +3,11 @@ nayantra/mcp/auth.py
 
 JWT token creation and verification for the MCP server.
 """
+
 from __future__ import annotations
 
 import datetime
 import logging
-from typing import Dict, Optional
 
 import jwt
 
@@ -34,7 +34,7 @@ def create_token(
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def verify_token(token: str) -> Optional[Dict]:
+def verify_token(token: str) -> dict | None:
     """Verify a JWT token and return its payload, or None if invalid."""
     if not token:
         return None

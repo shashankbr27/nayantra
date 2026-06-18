@@ -24,12 +24,11 @@ Usage:
     await bridge.spawn_robot("turtlebot3_1", x=0.0, y=0.0)
     await bridge.send_nav_goal("turtlebot3_1", waypoint="charging_dock")
 """
+
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -40,13 +39,13 @@ logger = logging.getLogger("rmf.isaac")
 # ---------------------------------------------------------------------------
 # Isaac Sim Kit REST endpoints
 # ---------------------------------------------------------------------------
-_STAGE_LOAD   = "/stage/load"
-_STAGE_RESET  = "/stage/reset"
-_PRIM_CREATE  = "/prim/create"
-_PRIM_DELETE  = "/prim/delete"
+_STAGE_LOAD = "/stage/load"
+_STAGE_RESET = "/stage/reset"
+_PRIM_CREATE = "/prim/create"
+_PRIM_DELETE = "/prim/delete"
 _PRIM_SET_ATTR = "/prim/set_attribute"
-_ACTION_GRAPH  = "/action_graph/execute"
-_ROBOT_STATE   = "/robot_state"        # custom endpoint exposed by our Isaac extension
+_ACTION_GRAPH = "/action_graph/execute"
+_ROBOT_STATE = "/robot_state"  # custom endpoint exposed by our Isaac extension
 
 
 class IsaacSimBridge:
@@ -61,7 +60,7 @@ class IsaacSimBridge:
     def __init__(self) -> None:
         self._enabled = settings.ISAAC_SIM_ENABLED
         self._base_url = settings.ISAAC_SIM_URL.rstrip("/")
-        self._http: Optional[httpx.AsyncClient] = None
+        self._http: httpx.AsyncClient | None = None
         self._connected = False
 
     async def connect(self) -> bool:
@@ -70,9 +69,7 @@ class IsaacSimBridge:
             logger.info("Isaac Sim disabled — running in stub mode")
             return True
 
-        self._http = httpx.AsyncClient(
-            base_url=self._base_url, timeout=30
-        )
+        self._http = httpx.AsyncClient(base_url=self._base_url, timeout=30)
         try:
             resp = await self._http.get("/health")
             resp.raise_for_status()
@@ -91,7 +88,7 @@ class IsaacSimBridge:
         await self._post(_STAGE_LOAD, payload)
         logger.info(f"Scene loaded: {settings.ISAAC_SIM_SCENE_PATH}")
 
-    async def reset_scene(self) -> Dict[str, Any]:
+    async def reset_scene(self) -> dict[str, Any]:
         """Reset simulation to initial state."""
         if not self._enabled or not self._connected:
             return self._stub("scene_reset")
@@ -108,7 +105,7 @@ class IsaacSimBridge:
         x: float = 0.0,
         y: float = 0.0,
         yaw: float = 0.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Spawn a robot prim at the given position.
 
@@ -133,7 +130,7 @@ class IsaacSimBridge:
         logger.info(f"Spawned {robot_name} at ({x}, {y})")
         return result
 
-    async def despawn_robot(self, robot_name: str) -> Dict[str, Any]:
+    async def despawn_robot(self, robot_name: str) -> dict[str, Any]:
         """Remove a robot prim from the scene."""
         if not self._enabled or not self._connected:
             return self._stub(f"despawn:{robot_name}")
@@ -149,10 +146,10 @@ class IsaacSimBridge:
     async def send_nav_goal(
         self,
         robot_name: str,
-        waypoint: Optional[str] = None,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        waypoint: str | None = None,
+        x: float | None = None,
+        y: float | None = None,
+    ) -> dict[str, Any]:
         """
         Command a simulated robot to navigate to a waypoint or coordinate.
 
@@ -164,7 +161,7 @@ class IsaacSimBridge:
             logger.info(f"[STUB] {robot_name} → navigate to {dest}")
             return self._stub(f"nav_goal:{robot_name}→{dest}")
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "robot_prim": f"/World/Robots/{robot_name}",
             "action": "navigate",
         }
@@ -175,7 +172,7 @@ class IsaacSimBridge:
 
         return await self._post(_ACTION_GRAPH, payload)
 
-    async def get_robot_pose(self, robot_name: str) -> Dict[str, Any]:
+    async def get_robot_pose(self, robot_name: str) -> dict[str, Any]:
         """Query the current pose of a simulated robot."""
         if not self._enabled or not self._connected:
             return self._stub({"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"})
@@ -194,7 +191,7 @@ class IsaacSimBridge:
     # Helpers
     # ------------------------------------------------------------------
 
-    async def _post(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         if not self._http:
             raise RuntimeError("Not connected to Isaac Sim")
         resp = await self._http.post(path, json=payload)
@@ -205,8 +202,9 @@ class IsaacSimBridge:
             return {"status": resp.status_code}
 
     @staticmethod
-    def _stub(tag: Any) -> Dict[str, Any]:
+    def _stub(tag: Any) -> dict[str, Any]:
         import time
+
         return {"source": "isaac_stub", "tag": str(tag), "timestamp": int(time.time())}
 
     async def close(self) -> None:

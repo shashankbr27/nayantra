@@ -31,12 +31,12 @@ Notes:
   • The "real" implementation requires the omni.usd APIs. The fallback
     below simulates everything so the rest of the stack can be exercised.
 """
+
 from __future__ import annotations
 
 import logging
-import time
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger("isaac_sim_server")
 
@@ -46,8 +46,9 @@ logger = logging.getLogger("isaac_sim_server")
 # ---------------------------------------------------------------------------
 try:
     from omni.isaac.core import World  # type: ignore
-    from omni.isaac.core.utils.stage import open_stage  # type: ignore
     from omni.isaac.core.utils.prims import create_prim, delete_prim  # type: ignore
+    from omni.isaac.core.utils.stage import open_stage  # type: ignore
+
     ISAAC_AVAILABLE = True
     logger.info("Isaac Sim APIs detected — running in live mode")
 except ImportError:
@@ -56,7 +57,7 @@ except ImportError:
 
 
 # In-memory robot pose registry (populated whether live or fallback)
-_robots: Dict[str, Dict[str, float]] = {}
+_robots: dict[str, dict[str, float]] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +75,7 @@ def _build_app():
     class PrimCreateRequest(BaseModel):
         prim_path: str
         usd_path: str = ""
-        attributes: Dict[str, Any] = {}
+        attributes: dict[str, Any] = {}
 
     class PrimDeleteRequest(BaseModel):
         prim_path: str
@@ -83,7 +84,7 @@ def _build_app():
         robot_prim: str
         action: str = "navigate"
         waypoint: str | None = None
-        goal: Dict[str, float] | None = None
+        goal: dict[str, float] | None = None
 
     @app.get("/health")
     def health():
@@ -100,7 +101,7 @@ def _build_app():
                 open_stage(req.url)
                 return {"status": "loaded", "url": req.url}
             except Exception as exc:
-                raise HTTPException(500, f"open_stage failed: {exc}")
+                raise HTTPException(500, f"open_stage failed: {exc}") from exc
         return {"status": "loaded_simulated", "url": req.url}
 
     @app.post("/stage/reset")
@@ -110,7 +111,7 @@ def _build_app():
                 World.instance().reset()
                 return {"status": "reset"}
             except Exception as exc:
-                raise HTTPException(500, f"reset failed: {exc}")
+                raise HTTPException(500, f"reset failed: {exc}") from exc
         return {"status": "reset_simulated"}
 
     @app.post("/prim/create")
@@ -119,8 +120,10 @@ def _build_app():
         rotate = req.attributes.get("xformOp:rotateXYZ", [0.0, 0.0, 0.0])
         name = req.prim_path.rsplit("/", 1)[-1]
         _robots[name] = {
-            "x": float(translate[0]), "y": float(translate[1]),
-            "yaw": float(rotate[2]), "level_name": "L1",
+            "x": float(translate[0]),
+            "y": float(translate[1]),
+            "yaw": float(rotate[2]),
+            "level_name": "L1",
             "prim_path": req.prim_path,
         }
 
@@ -133,7 +136,7 @@ def _build_app():
                     orientation=None,
                 )
             except Exception as exc:
-                raise HTTPException(500, f"create_prim failed: {exc}")
+                raise HTTPException(500, f"create_prim failed: {exc}") from exc
 
         return {"status": "created", "prim_path": req.prim_path}
 
@@ -145,11 +148,11 @@ def _build_app():
             try:
                 delete_prim(req.prim_path)
             except Exception as exc:
-                raise HTTPException(500, f"delete_prim failed: {exc}")
+                raise HTTPException(500, f"delete_prim failed: {exc}") from exc
         return {"status": "deleted", "prim_path": req.prim_path}
 
     @app.post("/prim/set_attribute")
-    def prim_set_attribute(payload: Dict[str, Any]):
+    def prim_set_attribute(payload: dict[str, Any]):
         return {"status": "ok", "received": payload}
 
     @app.post("/action_graph/execute")
@@ -183,6 +186,7 @@ def _build_app():
 def start(host: str = "0.0.0.0", port: int = 8211) -> None:
     """Start the REST server (blocking). Call from inside Isaac Sim."""
     import uvicorn
+
     app = _build_app()
     logger.info(f"Isaac Sim REST bridge listening on {host}:{port}")
     logger.info(f"  Live Isaac APIs: {ISAAC_AVAILABLE}")

@@ -3,10 +3,11 @@ nayantra/config.py
 
 Application settings loaded from environment variables via pydantic-settings.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,18 +15,23 @@ _ROOT = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
+    # Pydantic-settings reads the first .env file it finds in this tuple.
+    # We accept both the project-root .env (what scripts/setup.* creates and
+    # what local dev uses) and config/.env (a legacy / Docker-style location).
     model_config = SettingsConfigDict(
-        env_file=str(_ROOT / "config" / ".env"),
+        env_file=(str(_ROOT / ".env"), str(_ROOT / "config" / ".env")),
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
-    # LLM
-    LLM_PROVIDER: str = "anthropic"
+    # LLM — provider must be one of: anthropic | openai | gemini
+    LLM_PROVIDER: Literal["anthropic", "openai", "gemini"] = "anthropic"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # MCP Server — defaults to loopback. Override to 0.0.0.0 inside Docker / for LAN.
     MCP_SERVER_URL: str = "http://localhost:7000"
@@ -50,7 +56,7 @@ class Settings(BaseSettings):
     API_KEY: str = ""
 
     # CORS — restrictive default. Add your front-end origins via .env (comma-separated).
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:8080",
         "http://127.0.0.1:3000",
@@ -66,6 +72,15 @@ class Settings(BaseSettings):
     ZENOH_ENABLED: bool = False
     ZENOH_ROUTER_URL: str = "tcp/localhost:7447"
     ZENOH_MODE: str = "peer"
+
+    # RMF bridge (RMF-compatible control plane backed by Nav2, replaces the stub)
+    ROS2_ENABLED: bool = False
+    RMF_BRIDGE_HOST: str = "127.0.0.1"
+    RMF_BRIDGE_PORT: int = 8000
+    FLEET_NAME: str = "warehouse_fleet"
+    ROBOT_NAME: str = "carter1"
+    # Optional JSON file: {"waypoint_name": [x, y, yaw], ...} — overrides built-ins
+    WAYPOINTS_FILE: str = str(_ROOT / "config" / "waypoints.json")
 
     # Misc
     DEBUG_MODE: bool = True

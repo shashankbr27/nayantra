@@ -1,53 +1,36 @@
 """
 nayantra/agent/api_v2.py
 
-AI Agent HTTP API — v2.
-
-Adds over v1:
+Agent API v2 — same routes as v1 at the same paths, plus:
   - WebSocket fleet monitor (/ws/fleet)
-  - Dashboard static file serving (GET /)
-  - Batch command endpoint (POST /v2/batch)
-  - History search (GET /v2/history/search?q=...)
+  - Dashboard at GET /
+  - /v2/health version marker
+
+v2 *reuses v1's FastAPI app instance directly* (rather than mounting it
+under /v1) so that the standard paths /health, /run, /stream, /history,
+/stats, /readiness all work at the root — which is what the dashboard
+and the start scripts' health checks expect.
 """
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from fastapi import HTTPException
+from fastapi.responses import FileResponse, Response
 
-from nayantra.agent.api import app as v1_app
+from nayantra.agent.api import app  # reuse v1's FastAPI instance directly
 from nayantra.api.ws_monitor import router as ws_router
 from nayantra.config import settings
 
 logger = logging.getLogger("nayantra.api_v2")
 
-app = FastAPI(
-    title="Nayantra Agent API v2",
-    description="LLM-powered robot navigation API (v2)",
-    version="2.0.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
-)
-
+# Attach v2 extras to the shared v1 app
 app.include_router(ws_router)
-app.mount("/v1", v1_app)
 
 _DASHBOARD = Path(__file__).resolve().parents[2] / "nayantra" / "api" / "dashboard.html"
-
-
-class BatchRequest(BaseModel):
-    commands: List[str]
 
 
 @app.get("/v2/health")
@@ -55,10 +38,29 @@ async def health_v2():
     return {"status": "ok", "version": "2.0.0"}
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Browsers auto-request this; return an empty 204 to silence the 404."""
+    return Response(status_code=204)
+
+
 @app.get("/")
 async def serve_dashboard():
+    """
+    Serve dashboard.html with anti-caching headers so edits to the file
+    show up immediately on the next page load. Without these, browsers
+    aggressively cache the SPA shell and keep running stale JS that
+    targets old API paths (e.g. /command instead of /run).
+    """
     if _DASHBOARD.exists():
-        return FileResponse(str(_DASHBOARD))
+        return FileResponse(
+            str(_DASHBOARD),
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
     raise HTTPException(404, "Dashboard not found")
 
 

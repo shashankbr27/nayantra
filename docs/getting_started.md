@@ -27,6 +27,10 @@ NVIDIA Isaac Sim. Total time on a properly-spec'd machine: **~30 minutes**
 You need an API key for **one** of:
 - **Anthropic** (Claude) — recommended, get a key at https://console.anthropic.com
 - **OpenAI** (GPT-4o) — get a key at https://platform.openai.com
+- **Google Gemini** — get a key at https://aistudio.google.com/apikey
+
+Pick a provider via `LLM_PROVIDER` in `.env` (one of `anthropic`, `openai`,
+`gemini`) and fill in the matching `*_API_KEY` field.
 
 ---
 

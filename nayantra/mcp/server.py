@@ -12,14 +12,16 @@ Transports:
 Auth:
   All endpoints (except /health) require a Bearer JWT when USE_AUTH=true.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request, status
@@ -30,7 +32,7 @@ from pydantic import BaseModel
 
 from nayantra.config import settings
 from nayantra.mcp.auth import verify_token
-from nayantra.mcp.tools import TOOL_REGISTRY, execute_tool, get_all_tools
+from nayantra.mcp.tools import execute_tool, get_all_tools
 from nayantra.rmf_client.client import OpenRMFClient
 
 logger = logging.getLogger("rmf.mcp")
@@ -39,8 +41,8 @@ logger = logging.getLogger("rmf.mcp")
 # Shared state
 # ---------------------------------------------------------------------------
 
-rmf_client: Optional[OpenRMFClient] = None
-_event_queues: List[asyncio.Queue] = []   # fans out to SSE subscribers
+rmf_client: OpenRMFClient | None = None
+_event_queues: list[asyncio.Queue] = []  # fans out to SSE subscribers
 
 
 @asynccontextmanager
@@ -82,9 +84,10 @@ security = HTTPBearer(auto_error=False)
 # Auth dependency
 # ---------------------------------------------------------------------------
 
+
 async def auth_guard(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[Dict[str, Any]]:
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> dict[str, Any] | None:
     if not settings.USE_AUTH:
         return None
     if not credentials:
@@ -105,9 +108,10 @@ async def auth_guard(
 # Request / Response models
 # ---------------------------------------------------------------------------
 
+
 class RunRequest(BaseModel):
     tool: str
-    parameters: Dict[str, Any] = {}
+    parameters: dict[str, Any] = {}
 
 
 class RunResponse(BaseModel):
@@ -128,7 +132,7 @@ async def health():
 
 
 @app.get("/tools", dependencies=[Depends(auth_guard)])
-async def list_tools() -> List[Dict[str, Any]]:
+async def list_tools() -> list[dict[str, Any]]:
     """Return the full tool schema for all registered MCP tools."""
     return get_all_tools()
 
@@ -142,11 +146,11 @@ async def run_tool(req: RunRequest):
     t0 = time.monotonic()
     try:
         result = await execute_tool(rmf_client, req.tool, req.parameters)
-    except KeyError:
-        raise HTTPException(404, f"Unknown tool: {req.tool!r}")
+    except KeyError as exc:
+        raise HTTPException(404, f"Unknown tool: {req.tool!r}") from exc
     except Exception as exc:
         logger.exception(f"Tool execution error [{req.tool}]: {exc}")
-        raise HTTPException(500, str(exc))
+        raise HTTPException(500, str(exc)) from exc
 
     duration = (time.monotonic() - t0) * 1000
 
@@ -196,7 +200,7 @@ async def sse_stream(request: Request):
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=15.0)
                     yield f"data: {json.dumps(event)}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": heartbeat\n\n"
         finally:
             _event_queues.remove(queue)
@@ -211,6 +215,7 @@ async def sse_stream(request: Request):
 # ---------------------------------------------------------------------------
 # CLI entry
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     uvicorn.run(

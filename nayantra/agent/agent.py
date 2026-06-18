@@ -2,19 +2,22 @@
 nayantra/agent/agent.py
 
 Core AI Agent:
-  - Supports Anthropic Claude and OpenAI GPT-4o as backends
+  - Supports Anthropic Claude, OpenAI GPT-4o, and Google Gemini as backends
   - Uses structured output / tool-use APIs for deterministic planning
   - Delegates step ordering and parallelism to TaskPlanner
   - Executes multi-step plans against the MCP server with retry
   - Propagates dynamic IDs (task_id, alert_id) between steps
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import time
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import Any
 
 import httpx
 from tenacity import (
@@ -64,10 +67,11 @@ Rules:
 
 
 # ---------------------------------------------------------------------------
-# Tool-schema converters (shared between Claude and OpenAI code paths)
+# Tool-schema converters (shared between Claude, OpenAI, and Gemini code paths)
 # ---------------------------------------------------------------------------
 
-def to_anthropic_tool(tool: Dict[str, Any]) -> Dict[str, Any]:
+
+def to_anthropic_tool(tool: dict[str, Any]) -> dict[str, Any]:
     """Convert an MCP tool schema to Anthropic tool-use format."""
     return {
         "name": tool["name"],
@@ -79,7 +83,7 @@ def to_anthropic_tool(tool: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def to_openai_tool(tool: Dict[str, Any]) -> Dict[str, Any]:
+def to_openai_tool(tool: dict[str, Any]) -> dict[str, Any]:
     """Convert an MCP tool schema to OpenAI function-calling format."""
     return {
         "type": "function",
@@ -94,12 +98,32 @@ def to_openai_tool(tool: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def to_gemini_tool(tool: dict[str, Any]) -> dict[str, Any]:
+    """
+    Convert an MCP tool schema to Gemini function-declaration format.
+
+    Gemini rejects empty `parameters` schemas, so for parameter-less tools
+    we omit the field entirely.
+    """
+    decl: dict[str, Any] = {
+        "name": tool["name"],
+        "description": tool.get("description", ""),
+    }
+    params = tool.get("parameters") or {}
+    if params:
+        decl["parameters"] = {
+            "type": "object",
+            "properties": params,
+        }
+    return decl
+
+
 class RMFAgent:
     """LLM-powered agent that translates natural language into RMF fleet operations."""
 
-    def __init__(self, mcp_url: Optional[str] = None) -> None:
+    def __init__(self, mcp_url: str | None = None) -> None:
         self.mcp_url = (mcp_url or settings.MCP_SERVER_URL).rstrip("/")
-        self._tools_cache: List[Dict[str, Any]] = []
+        self._tools_cache: list[dict[str, Any]] = []
         self._tools_fetched_at: float = 0.0
         self._http = httpx.AsyncClient(timeout=settings.API_TIMEOUT)
         self._planner = TaskPlanner()
@@ -107,26 +131,35 @@ class RMFAgent:
 
     def _setup_llm_client(self) -> None:
         """Initialise the appropriate LLM client based on config."""
-        if settings.LLM_PROVIDER == "anthropic":
+        provider = settings.LLM_PROVIDER
+        if provider == "anthropic":
             import anthropic  # type: ignore
 
             self._llm_provider = "anthropic"
-            self._anthropic = anthropic.AsyncAnthropic(
-                api_key=settings.ANTHROPIC_API_KEY
-            )
+            self._anthropic = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             logger.info(f"LLM: Anthropic {settings.ANTHROPIC_MODEL}")
-        else:
+        elif provider == "gemini":
+            from google import genai  # type: ignore
+
+            self._llm_provider = "gemini"
+            self._gemini = genai.Client(api_key=settings.GEMINI_API_KEY)
+            logger.info(f"LLM: Gemini {settings.GEMINI_MODEL}")
+        elif provider == "openai":
             from openai import AsyncOpenAI  # type: ignore
 
             self._llm_provider = "openai"
             self._openai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
             logger.info(f"LLM: OpenAI {settings.OPENAI_MODEL}")
+        else:
+            raise ValueError(
+                f"Unknown LLM_PROVIDER: {provider!r}. Must be one of: anthropic, openai, gemini."
+            )
 
     # ------------------------------------------------------------------
     # Tool discovery
     # ------------------------------------------------------------------
 
-    async def _get_tools(self) -> List[Dict[str, Any]]:
+    async def _get_tools(self) -> list[dict[str, Any]]:
         """Fetch available tools from MCP server (cached for 60 s)."""
         now = time.monotonic()
         if self._tools_cache and (now - self._tools_fetched_at) < 60:
@@ -143,10 +176,10 @@ class RMFAgent:
                 self._tools_cache = self._load_fallback_tools()
         return self._tools_cache
 
-    def _load_fallback_tools(self) -> List[Dict[str, Any]]:
+    def _load_fallback_tools(self) -> list[dict[str, Any]]:
         """Load tool definitions from the local fallback JSON."""
         try:
-            with open(settings.FALLBACK_TOOLS_FILE) as fh:
+            with Path(settings.FALLBACK_TOOLS_FILE).open() as fh:
                 data = json.load(fh)
             logger.info(f"Loaded {len(data)} fallback tools from {settings.FALLBACK_TOOLS_FILE}")
             return data
@@ -158,9 +191,7 @@ class RMFAgent:
     # Planning
     # ------------------------------------------------------------------
 
-    async def _plan_with_anthropic(
-        self, command: str, tools: List[Dict[str, Any]]
-    ) -> AgentPlan:
+    async def _plan_with_anthropic(self, command: str, tools: list[dict[str, Any]]) -> AgentPlan:
         """Use Claude tool-use API to create a structured plan."""
         anthropic_tools = [to_anthropic_tool(t) for t in tools]
 
@@ -173,8 +204,8 @@ class RMFAgent:
             messages=messages,
         )
 
-        steps: List[ToolCall] = []
-        direct_answer: Optional[str] = None
+        steps: list[ToolCall] = []
+        direct_answer: str | None = None
 
         for block in resp.content:
             if block.type == "tool_use":
@@ -190,9 +221,45 @@ class RMFAgent:
 
         return AgentPlan(steps=steps, direct_answer=direct_answer if not steps else None)
 
-    async def _plan_with_openai(
-        self, command: str, tools: List[Dict[str, Any]]
-    ) -> AgentPlan:
+    async def _plan_with_gemini(self, command: str, tools: list[dict[str, Any]]) -> AgentPlan:
+        """Use Gemini function-calling to create a structured plan."""
+        function_declarations = [to_gemini_tool(t) for t in tools]
+        gemini_tools = [{"function_declarations": function_declarations}]
+
+        resp = await self._gemini.aio.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=command,
+            config={
+                "system_instruction": SYSTEM_PROMPT,
+                "tools": gemini_tools,
+                "temperature": 0,
+            },
+        )
+
+        steps: list[ToolCall] = []
+        direct_answer: str | None = None
+
+        candidates = getattr(resp, "candidates", None) or []
+        for cand in candidates:
+            content = getattr(cand, "content", None)
+            for part in getattr(content, "parts", []) or []:
+                fc = getattr(part, "function_call", None)
+                if fc and getattr(fc, "name", None):
+                    steps.append(
+                        ToolCall(
+                            tool=fc.name,
+                            parameters=dict(fc.args) if fc.args else {},
+                            reason=f"Gemini selected {fc.name}",
+                        )
+                    )
+                else:
+                    text = getattr(part, "text", None)
+                    if text and text.strip():
+                        direct_answer = text.strip()
+
+        return AgentPlan(steps=steps, direct_answer=direct_answer if not steps else None)
+
+    async def _plan_with_openai(self, command: str, tools: list[dict[str, Any]]) -> AgentPlan:
         """Use GPT-4o function-calling to create a structured plan."""
         oai_tools = [to_openai_tool(t) for t in tools]
 
@@ -208,8 +275,8 @@ class RMFAgent:
         )
 
         msg = resp.choices[0].message
-        steps: List[ToolCall] = []
-        direct_answer: Optional[str] = None
+        steps: list[ToolCall] = []
+        direct_answer: str | None = None
 
         if msg.tool_calls:
             for tc in msg.tool_calls:
@@ -231,8 +298,9 @@ class RMFAgent:
         tools = await self._get_tools()
         if self._llm_provider == "anthropic":
             return await self._plan_with_anthropic(command, tools)
-        else:
-            return await self._plan_with_openai(command, tools)
+        if self._llm_provider == "gemini":
+            return await self._plan_with_gemini(command, tools)
+        return await self._plan_with_openai(command, tools)
 
     # ------------------------------------------------------------------
     # Execution
@@ -244,7 +312,7 @@ class RMFAgent:
         wait=wait_exponential(min=1, max=8),
         reraise=True,
     )
-    async def _call_mcp(self, tool: str, params: Dict[str, Any]) -> Any:
+    async def _call_mcp(self, tool: str, params: dict[str, Any]) -> Any:
         """POST /run on the MCP server with transport-error retry."""
         resp = await self._http.post(
             f"{self.mcp_url}/run",
@@ -257,7 +325,7 @@ class RMFAgent:
         self,
         step: ToolCall,
         step_index: int,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> StepResult:
         """Execute one tool call against the MCP server."""
         params = self._resolve_params(step.parameters, context)
@@ -293,9 +361,7 @@ class RMFAgent:
                 error=str(exc),
             )
 
-    def _resolve_params(
-        self, params: Dict[str, Any], context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _resolve_params(self, params: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
         """Replace {{key}} placeholders with values from prior step outputs."""
         resolved = {}
         for k, v in params.items():
@@ -308,7 +374,7 @@ class RMFAgent:
                 resolved[k] = v
         return resolved
 
-    def _extract_ids(self, result: Any, context: Dict[str, Any]) -> None:
+    def _extract_ids(self, result: Any, context: dict[str, Any]) -> None:
         """
         Walk a (possibly nested) result and copy any known ID keys into context.
 
@@ -328,18 +394,20 @@ class RMFAgent:
     async def _execute_group(
         self,
         plan: AgentPlan,
-        indices: List[int],
-        context: Dict[str, Any],
-    ) -> List[StepResult]:
+        indices: list[int],
+        context: dict[str, Any],
+    ) -> list[StepResult]:
         """Run all steps in one parallel group concurrently."""
-        return await asyncio.gather(*[
-            self._execute_step(
-                self._planner.enrich_step(plan.steps[i], context),
-                i,
-                context,
-            )
-            for i in indices
-        ])
+        return await asyncio.gather(
+            *[
+                self._execute_step(
+                    self._planner.enrich_step(plan.steps[i], context),
+                    i,
+                    context,
+                )
+                for i in indices
+            ]
+        )
 
     async def execute_plan(self, plan: AgentPlan, command: str) -> MissionResult:
         """
@@ -349,7 +417,7 @@ class RMFAgent:
         for their predecessors. Mission aborts on the first failed step.
         """
         mission = MissionResult(command=command)
-        context: Dict[str, Any] = {}
+        context: dict[str, Any] = {}
 
         try:
             groups = self._planner.build_execution_groups(plan)
@@ -374,18 +442,15 @@ class RMFAgent:
                     logger.warning(f"Step {result.step_index} failed — aborting mission")
 
         mission.steps.sort(key=lambda s: s.step_index)
-        mission.success = (
-            len(mission.steps) == len(plan.steps)
-            and all(s.status == StepStatus.SUCCESS for s in mission.steps)
+        mission.success = len(mission.steps) == len(plan.steps) and all(
+            s.status == StepStatus.SUCCESS for s in mission.steps
         )
         mission.summary = await self._summarise(command, mission)
         return mission
 
     async def _summarise(self, command: str, mission: MissionResult) -> str:
         """Ask the LLM to produce a human-readable mission summary."""
-        results_json = json.dumps(
-            [s.model_dump() for s in mission.steps], indent=2
-        )
+        results_json = json.dumps([s.model_dump() for s in mission.steps], indent=2)
         prompt = (
             f"The user asked: {command!r}\n\n"
             f"Execution results:\n{results_json}\n\n"
@@ -400,18 +465,29 @@ class RMFAgent:
                     messages=[{"role": "user", "content": prompt}],
                 )
                 return resp.content[0].text.strip()
-            else:
-                resp = await self._openai.chat.completions.create(
-                    model=settings.OPENAI_MODEL,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.5,
-                    max_tokens=256,
+            if self._llm_provider == "gemini":
+                resp = await self._gemini.aio.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=prompt,
+                    config={"temperature": 0.5, "max_output_tokens": 256},
                 )
-                return resp.choices[0].message.content.strip()
+                text = getattr(resp, "text", None) or ""
+                return text.strip() or self._fallback_summary(mission)
+            resp = await self._openai.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.5,
+                max_tokens=256,
+            )
+            return resp.choices[0].message.content.strip()
         except Exception as exc:
             logger.error(f"Summary generation failed: {exc}")
-            status = "successfully" if mission.success else "with errors"
-            return f"Mission completed {status} in {len(mission.steps)} steps."
+            return self._fallback_summary(mission)
+
+    @staticmethod
+    def _fallback_summary(mission: MissionResult) -> str:
+        status = "successfully" if mission.success else "with errors"
+        return f"Mission completed {status} in {len(mission.steps)} steps."
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -457,7 +533,7 @@ class RMFAgent:
             return
 
         mission = MissionResult(command=command)
-        context: Dict[str, Any] = {}
+        context: dict[str, Any] = {}
         aborted = False
 
         for group in groups:
@@ -473,9 +549,8 @@ class RMFAgent:
                     aborted = True
 
         mission.steps.sort(key=lambda s: s.step_index)
-        mission.success = (
-            len(mission.steps) == len(plan.steps)
-            and all(s.status == StepStatus.SUCCESS for s in mission.steps)
+        mission.success = len(mission.steps) == len(plan.steps) and all(
+            s.status == StepStatus.SUCCESS for s in mission.steps
         )
         mission.summary = await self._summarise(command, mission)
         yield _sse("done", {"summary": mission.summary, "success": mission.success})
@@ -487,6 +562,7 @@ class RMFAgent:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _sse(event: str, data: Any) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"

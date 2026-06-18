@@ -8,6 +8,7 @@ Tests for the multi-step task planner:
   - Parameter enrichment from context
   - Plan description
 """
+
 from __future__ import annotations
 
 import pytest
@@ -25,19 +26,18 @@ def planner():
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_plan(*tools: str, deps: dict = None) -> AgentPlan:
     """Build an AgentPlan from tool names and an optional deps dict {step_idx: depends_on}."""
     deps = deps or {}
-    steps = [
-        ToolCall(tool=t, parameters={}, depends_on=deps.get(i))
-        for i, t in enumerate(tools)
-    ]
+    steps = [ToolCall(tool=t, parameters={}, depends_on=deps.get(i)) for i, t in enumerate(tools)]
     return AgentPlan(steps=steps)
 
 
 # ---------------------------------------------------------------------------
 # Validation — valid plans
 # ---------------------------------------------------------------------------
+
 
 def test_validate_empty_plan_ok(planner):
     planner.validate(AgentPlan(steps=[]))  # should not raise
@@ -62,6 +62,7 @@ def test_validate_no_deps_ok(planner):
 # ---------------------------------------------------------------------------
 # Validation — invalid plans
 # ---------------------------------------------------------------------------
+
 
 def test_validate_out_of_range_dep_raises(planner):
     # step 0 claims to depend on step 5 (doesn't exist)
@@ -92,6 +93,7 @@ def test_validate_self_dep_raises(planner):
 # ---------------------------------------------------------------------------
 # Execution groups (parallelism)
 # ---------------------------------------------------------------------------
+
 
 def test_groups_no_deps_all_in_one_group(planner):
     plan = make_plan("a", "b", "c")
@@ -134,6 +136,7 @@ def test_groups_two_independent_chains(planner):
 # Parameter enrichment
 # ---------------------------------------------------------------------------
 
+
 def test_enrich_injects_fleet_name_from_context(planner):
     step = ToolCall(tool="move_robot", parameters={"robot_name": "r1", "waypoint": "dock"})
     enriched = planner.enrich_step(step, {"fleet_name": "fleet_a"})
@@ -141,7 +144,10 @@ def test_enrich_injects_fleet_name_from_context(planner):
 
 
 def test_enrich_does_not_overwrite_existing_fleet(planner):
-    step = ToolCall(tool="move_robot", parameters={"fleet_name": "my_fleet", "robot_name": "r1", "waypoint": "w"})
+    step = ToolCall(
+        tool="move_robot",
+        parameters={"fleet_name": "my_fleet", "robot_name": "r1", "waypoint": "w"},
+    )
     enriched = planner.enrich_step(step, {"fleet_name": "other_fleet"})
     assert enriched.parameters["fleet_name"] == "my_fleet"
 
@@ -168,6 +174,7 @@ def test_enrich_does_not_mutate_original_step(planner):
 # ---------------------------------------------------------------------------
 # Describe
 # ---------------------------------------------------------------------------
+
 
 def test_describe_empty_plan(planner):
     desc = planner.describe(AgentPlan(steps=[]))

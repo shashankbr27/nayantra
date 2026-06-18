@@ -12,11 +12,11 @@ Endpoints:
   GET  /health        — Liveness probe
   GET  /readiness     — Full startup readiness check
 """
+
 from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -31,9 +31,9 @@ from nayantra.config import settings
 
 logger = logging.getLogger("nayantra.api")
 
-_agent: Optional[RMFAgent] = None
-_store: Optional[MissionStore] = None
-_health: Optional[HealthChecker] = None
+_agent: RMFAgent | None = None
+_store: MissionStore | None = None
+_health: HealthChecker | None = None
 
 
 @asynccontextmanager
@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             "USE_AUTH=true but JWT_SECRET is empty. "
             "Generate a strong secret: "
-            "python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            'python -c "import secrets; print(secrets.token_urlsafe(48))"'
         )
     _agent = RMFAgent()
     _store = MissionStore()
