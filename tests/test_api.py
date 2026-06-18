@@ -11,7 +11,26 @@ from fastapi import FastAPI
 
 
 def _route_paths(app: FastAPI) -> set:
-    return {r.path for r in app.routes}
+    """Collect every route path, descending into included sub-routers.
+
+    Starlette >= 1.3 represents ``include_router`` entries as lazy
+    ``_IncludedRouter`` objects that have no ``.path`` of their own but
+    expose their child routes via ``.routes`` — so we walk recursively
+    and skip anything that is neither.
+    """
+    paths: set = set()
+
+    def _collect(routes) -> None:
+        for r in routes:
+            path = getattr(r, "path", None)
+            if path is not None:
+                paths.add(path)
+            sub = getattr(r, "routes", None)
+            if sub:
+                _collect(sub)
+
+    _collect(app.routes)
+    return paths
 
 
 def test_v1_api_has_health_route():

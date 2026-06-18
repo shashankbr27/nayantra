@@ -40,6 +40,10 @@ def _force_debug_mode(monkeypatch):
     monkeypatch.setattr(settings, "USE_AUTH", False)
     monkeypatch.setattr(settings, "ISAAC_SIM_ENABLED", False)
     monkeypatch.setattr(settings, "ZENOH_ENABLED", False)
+    # JWT_SECRET has no default (empty unless set via .env); the auth tests
+    # sign/verify real tokens, so give them a deterministic key that doesn't
+    # depend on a local .env existing (CI has none → empty HMAC key error).
+    monkeypatch.setattr(settings, "JWT_SECRET", "test-jwt-secret-key-32-bytes-minimum!!")
 
 
 # ---------------------------------------------------------------------------
