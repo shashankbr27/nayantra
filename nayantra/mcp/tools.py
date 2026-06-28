@@ -14,6 +14,9 @@ import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+import httpx
+
+from nayantra.config import settings
 from nayantra.rmf_client.client import OpenRMFClient
 
 logger = logging.getLogger("nayantra.tools")
@@ -534,3 +537,103 @@ async def _list_dispensers(client: OpenRMFClient, params: dict[str, Any]) -> Any
 )
 async def _list_ingestors(client: OpenRMFClient, params: dict[str, Any]) -> Any:
     return await client.get_ingestors()
+
+
+# ---------------------------------------------------------------------------
+# Isaac Demo (scripts/isaac_demo.py) tools
+#
+# Only registered when ISAAC_DEMO_URL is set. These let the LLM drive Carter
+# in the live Isaac Sim WebRTC demo directly, bypassing the RMF / fleet adapter
+# pipeline. Useful for visually impressive demos where the agent's command
+# produces a robot movement in the photoreal Isaac viewport.
+# ---------------------------------------------------------------------------
+
+
+async def _isaac_demo_request(method: str, path: str, **kw: Any) -> Any:
+    """Short-lived httpx call to the isaac_demo control API."""
+    if not settings.ISAAC_DEMO_URL:
+        raise RuntimeError(
+            "ISAAC_DEMO_URL is not configured. Set it in .env "
+            "(e.g. http://172.25.60.165:8900) to enable the Isaac demo tools."
+        )
+    url = f"{settings.ISAAC_DEMO_URL.rstrip('/')}{path}"
+    async with httpx.AsyncClient(timeout=10) as http:
+        resp = await http.request(method, url, **kw)
+        resp.raise_for_status()
+        try:
+            return resp.json()
+        except Exception:
+            return {"status": resp.status_code, "text": resp.text}
+
+
+if settings.ISAAC_DEMO_URL:
+
+    @_tool(
+        {
+            "name": "isaac_list_waypoints",
+            "description": (
+                "List the named waypoints available in the Isaac Sim demo "
+                "warehouse (e.g. 'charging_dock', 'loading_dock', 'canteen'). "
+                "Use this before calling isaac_goto_waypoint to discover valid names."
+            ),
+            "parameters": {},
+            "api_endpoint": "GET /waypoints",
+        }
+    )
+    async def _isaac_list_waypoints(client: OpenRMFClient, params: dict[str, Any]) -> Any:
+        return await _isaac_demo_request("GET", "/waypoints")
+
+    @_tool(
+        {
+            "name": "isaac_goto_waypoint",
+            "description": (
+                "Drive the robot to a named waypoint in the Isaac Sim demo. "
+                "PREFER THIS over move_robot for warehouse-demo commands: this "
+                "produces a visible motion in the live WebRTC stream."
+            ),
+            "parameters": {
+                "waypoint": {
+                    "type": "string",
+                    "description": "Named waypoint (call isaac_list_waypoints to discover).",
+                },
+            },
+            "api_endpoint": "POST /goto?waypoint=...",
+        }
+    )
+    async def _isaac_goto_waypoint(client: OpenRMFClient, params: dict[str, Any]) -> Any:
+        return await _isaac_demo_request("POST", "/goto", params={"waypoint": params["waypoint"]})
+
+    @_tool(
+        {
+            "name": "isaac_goto_xy",
+            "description": (
+                "Drive the robot to absolute (x, y) coordinates in the Isaac Sim demo. "
+                "Use when the destination isn't a named waypoint."
+            ),
+            "parameters": {
+                "x": {"type": "number", "description": "Target x in metres."},
+                "y": {"type": "number", "description": "Target y in metres."},
+            },
+            "api_endpoint": "POST /goto?x=..&y=..",
+        }
+    )
+    async def _isaac_goto_xy(client: OpenRMFClient, params: dict[str, Any]) -> Any:
+        return await _isaac_demo_request(
+            "POST", "/goto", params={"x": params["x"], "y": params["y"]}
+        )
+
+    @_tool(
+        {
+            "name": "isaac_get_robot_state",
+            "description": (
+                "Get the live state of the robot in the Isaac Sim demo: position, "
+                "yaw, whether it's currently moving, and the current target."
+            ),
+            "parameters": {},
+            "api_endpoint": "GET /state",
+        }
+    )
+    async def _isaac_get_robot_state(client: OpenRMFClient, params: dict[str, Any]) -> Any:
+        return await _isaac_demo_request("GET", "/state")
+
+    logger.info(f"Isaac Demo tools registered (target: {settings.ISAAC_DEMO_URL})")

@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     ISAAC_SIM_URL: str = "http://localhost:8211"
     ISAAC_SIM_SCENE_PATH: str = "/Isaac/Environments/Simple_Warehouse/warehouse.usd"
 
+    # Isaac Demo (scripts/isaac_demo.py HTTP control API). Empty = disabled.
+    # When set, the isaac_* MCP tools become available to the LLM.
+    ISAAC_DEMO_URL: str = ""
+
     # Zenoh
     ZENOH_ENABLED: bool = False
     ZENOH_ROUTER_URL: str = "tcp/localhost:7447"
