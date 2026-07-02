@@ -71,8 +71,10 @@ function Start-NayantraService {
 }
 
 function Wait-Healthy {
-    param([string]$Name, [string]$Url, [int]$TimeoutSec = 30)
-    Info "Waiting for $Name @ $Url ..."
+    # 120s: a cold start on Windows imports heavy libs (anthropic, openai,
+    # google-genai, fastapi, uvicorn) which can take well over 30s the first time.
+    param([string]$Name, [string]$Url, [int]$TimeoutSec = 120)
+    Info "Waiting for $Name @ $Url (first start can take ~60-90s) ..."
     for ($i = 0; $i -lt $TimeoutSec; $i++) {
         try {
             $r = Invoke-WebRequest -Uri $Url -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
@@ -82,18 +84,21 @@ function Wait-Healthy {
     Warn "$Name did not become healthy within ${TimeoutSec}s, check runtime\logs\$Name.*.log"
 }
 
-# --- 1. RMF stub -------------------------------------------------------------
+# --- Launch ALL services first (concurrently) --------------------------------
+# They don't need each other UP to start importing: the MCP client and the
+# agent connect lazily on first use. Launching all three at once overlaps their
+# cold-start imports, so total startup ~= the slowest single one, not the sum.
 if (-not $NoStub) {
     Start-NayantraService "rmf-stub" @("docker\rmf_stub_server.py") 8000
+}
+Start-NayantraService "mcp-server" @("-m","nayantra.mcp.server") 7000
+Start-NayantraService "agent-api" @("-m","uvicorn","${apiModule}:app","--host","127.0.0.1","--port","8080") 8080
+
+# --- Then wait for health (imports are now happening in parallel) ------------
+if (-not $NoStub) {
     Wait-Healthy "rmf-stub" "http://localhost:8000/health"
 }
-
-# --- 2. MCP server -----------------------------------------------------------
-Start-NayantraService "mcp-server" @("-m","nayantra.mcp.server") 7000
 Wait-Healthy "mcp-server" "http://localhost:7000/health"
-
-# --- 3. Agent API ------------------------------------------------------------
-Start-NayantraService "agent-api" @("-m","uvicorn","${apiModule}:app","--host","127.0.0.1","--port","8080") 8080
 Wait-Healthy "agent-api" "http://localhost:8080/health"
 
 Write-Host ""

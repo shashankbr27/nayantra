@@ -2,7 +2,7 @@
 # =============================================================================
 # scripts/install_isaac_pip.sh — native (NO Docker) Isaac Sim 6.0 install
 #
-# For an Ubuntu 24.04 workstation with Python 3.12 and an NVENC+RT-core GPU
+# For an Ubuntu 24.04 workstation with Python 3.12 and a modern RTX GPU
 # (RTX 6000 Ada, etc.). Installs Isaac Sim from NVIDIA's pip index into a
 # user-space venv — nothing system-level, no Docker, no sudo.
 #

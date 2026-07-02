@@ -1,46 +1,45 @@
 """
-scripts/isaac_boot.py
+scripts/isaac_boot.py — Isaac Sim as a ROS 2 publisher for Nav2, on a GPU workstation.
 
-Headless Isaac Sim as a ROS 2 publisher (no viewport streaming).
+Isaac runs as the physics/sensor simulator: it publishes over ROS 2 (/clock, /tf,
+/odom) and subscribes /cmd_vel, so Nav2 can drive the robot. Two view modes:
 
-Isaac runs as the physics/sensor simulator and publishes over ROS 2 (/clock, /tf,
-/odom, etc.). You visualise on a viewer machine with RViz2, which renders locally
-from those topics — full interactive 3D, no video encoding, no capture. This is
-the right path when:
-  - the host GPU lacks NVENC or RT cores (WebRTC streaming won't work), or
-  - you want Nav2 / SLAM to drive the robot from ROS 2 commands, or
-  - you want a thin, deterministic ROS 2 surface for an upstream agent stack.
-
-If you instead want photoreal WebRTC streaming (RTX 6000 Ada / A6000-class GPU
-with NVENC), use scripts/run_isaac_workstation.sh + scripts/isaac_demo.py.
+  STREAM=0 (default) — headless, no rendering. Visualise with RViz2 on a viewer
+                       machine, which renders locally from /tf etc. Lightest weight.
+  STREAM=1           — render + WebRTC-stream the sim (via the stock streaming
+                       experience) so you can watch the photoreal warehouse in the
+                       Isaac WebRTC client. Set PUBLIC_IP for remote/VPN clients.
 
 What it does:
-  1. SimulationApp headless (livestream off).
+  1. SimulationApp (headless; STREAM=1 adds the WebRTC streaming experience).
   2. Enables the ROS 2 bridge extension.
-  3. Loads the warehouse + spawns Carter (assets from /isaac-assets, mounted).
-  4. Builds an OmniGraph that publishes /clock and /tf for the robot.
-  5. Builds a drive OmniGraph: subscribes /cmd_vel, drives Carter's wheels via
-     DifferentialController, publishes /odom. This is what makes Nav2 -> robot
-     motion actually work end-to-end. Disable with ENABLE_DIFF_DRIVE=0.
+  3. Loads the warehouse + spawns Carter (carter_v1 by default).
+  4. Builds an OmniGraph that publishes /clock and /tf.
+  5. Builds a drive OmniGraph: /cmd_vel -> DifferentialController -> wheels, and
+     publishes /odom. This is what makes Nav2 -> robot motion work end-to-end.
+     Disable with ENABLE_DIFF_DRIVE=0.
   6. Plays the timeline and steps forever.
 
 Env (core):
-  ROS_DOMAIN_ID      ROS 2 domain (default 0; must match your laptop)
+  STREAM             0/1 — WebRTC-stream the viewport (default 0 = headless/RViz)
+  PUBLIC_IP          public IP for the WebRTC client (needed over a VPN)
+  CAM_EYE / CAM_TARGET  viewport camera pose in STREAM mode (comma-separated x,y,z)
+  ROS_DOMAIN_ID      ROS 2 domain (default 0; must match your viewer)
   ROBOT_NAME         robot prim name (default carter)
   ROBOT_X / ROBOT_Y  spawn position
   SCENE_USD / ROBOT_USD / ISAAC_ASSETS_ROOT
   SELF_TEST=1        ground plane only (no external assets), still publishes TF
 
-Env (drive graph — Carter v2 defaults shown; override per your USD):
+Env (drive graph — carter_v1 defaults; override per your USD):
   ENABLE_DIFF_DRIVE  0/1 (default 1; auto-skipped in SELF_TEST)
   CMD_VEL_TOPIC      default /cmd_vel
   ODOM_TOPIC         default /odom
   ODOM_FRAME_ID      default odom
   CHASSIS_FRAME_ID   default base_link
-  WHEEL_RADIUS       default 0.14   (m, Nova Carter)
-  WHEEL_DISTANCE     default 0.413  (m, Nova Carter wheel base)
-  LEFT_WHEEL_JOINT   default joint_wheel_left
-  RIGHT_WHEEL_JOINT  default joint_wheel_right
+  WHEEL_RADIUS       default 0.14
+  WHEEL_DISTANCE     default 0.413
+  LEFT_WHEEL_JOINT   default left_wheel
+  RIGHT_WHEEL_JOINT  default right_wheel
 """
 
 from __future__ import annotations
@@ -57,12 +56,31 @@ try:
 except ImportError:
     from omni.isaac.kit import SimulationApp  # <=4.2
 
-simulation_app = SimulationApp(
-    {
-        "headless": True,
-        "renderer": "RayTracedLighting",
-    }
-)
+# STREAM=1 -> render + WebRTC-stream the sim so you can SEE it in the Isaac
+# WebRTC client. It launches the stock streaming experience
+# (isaacsim.exp.full.streaming.kit), which correctly enables
+# omni.kit.livestream.{core,webrtc,app} — the `.app` one is what binds :49100
+# (our earlier hand-rolled livestream:2 missed it). Set PUBLIC_IP to the address
+# your client reaches this box at (needed over a VPN). STREAM=0 (default) is
+# headless/no-render for the RViz path.
+_STREAM = os.getenv("STREAM", "0").strip().lower() in ("1", "true", "yes")
+if _STREAM:
+    import isaacsim as _isaacsim_pkg
+
+    _apps_dir = os.path.join(os.path.dirname(_isaacsim_pkg.__file__), "apps")
+    _experience = os.getenv(
+        "STREAM_EXPERIENCE", os.path.join(_apps_dir, "isaacsim.exp.full.streaming.kit")
+    )
+    simulation_app = SimulationApp(
+        {
+            "headless": True,
+            "width": int(os.getenv("RENDER_WIDTH", "1280")),
+            "height": int(os.getenv("RENDER_HEIGHT", "720")),
+        },
+        experience=_experience,
+    )
+else:
+    simulation_app = SimulationApp({"headless": True, "renderer": "RayTracedLighting"})
 
 
 def say(msg: str) -> None:
@@ -96,29 +114,114 @@ say(
 # -----------------------------------------------------------------------------
 # 3. Core imports
 # -----------------------------------------------------------------------------
+import importlib  # noqa: E402
+
 import omni.graph.core as og  # noqa: E402
 import omni.timeline  # noqa: E402
 import omni.usd  # noqa: E402
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics  # noqa: E402
 
+# World moved to isaacsim.core.api in 4.5+ (was omni.isaac.core in <=4.2).
 try:
-    from omni.isaac.core import World  # type: ignore
-    from omni.isaac.core.utils.nucleus import get_assets_root_path  # type: ignore
-    from omni.isaac.core.utils.stage import add_reference_to_stage  # type: ignore
+    from isaacsim.core.api import World  # type: ignore  # 4.5+
 except ImportError:
-    from isaacsim.core.api import World  # type: ignore
-    from isaacsim.core.utils.nucleus import get_assets_root_path  # type: ignore
-    from isaacsim.core.utils.stage import add_reference_to_stage  # type: ignore
+    from omni.isaac.core import World  # type: ignore  # <=4.2
+
+# get_assets_root_path moved across versions:
+#   6.0 -> isaacsim.storage.native ; 4.5 -> isaacsim.core.utils.nucleus ;
+#   <=4.2 -> omni.isaac.core.utils.nucleus. Try them in order.
+get_assets_root_path = None
+for _m in (
+    "isaacsim.storage.native",
+    "isaacsim.core.utils.nucleus",
+    "omni.isaac.core.utils.nucleus",
+):
+    try:
+        get_assets_root_path = importlib.import_module(_m).get_assets_root_path
+        break
+    except Exception:  # noqa: BLE001
+        continue
+if get_assets_root_path is None:
+    def get_assets_root_path():  # type: ignore
+        return None
+
+
+def _add_ref(stage, usd_path: str, prim_path: str):
+    """Reference a USD asset so its full subtree composes. Prefer Isaac's loader
+    (resolves the asset's defaultPrim + forces payloads via the omni resolver);
+    fall back to raw pxr + an explicit payload load. The isaacsim stage helper
+    was renamed/moved across versions and its kwarg changed (prim_path -> path),
+    so we probe all known module names and both signatures."""
+    for modname in (
+        "isaacsim.core.utils.stage",
+        "isaacsim.core.experimental.utils.stage",
+        "omni.isaac.core.utils.stage",
+    ):
+        try:
+            fn = importlib.import_module(modname).add_reference_to_stage
+        except Exception:  # noqa: BLE001
+            continue
+        for kwargs in (
+            {"usd_path": usd_path, "prim_path": prim_path},
+            {"usd_path": usd_path, "path": prim_path},
+        ):
+            try:
+                fn(**kwargs)
+                say(f"referenced {prim_path} via {modname}")
+                return stage.GetPrimAtPath(prim_path)
+            except TypeError:
+                continue  # wrong kwarg name for this version; try the other
+            except Exception as exc:  # noqa: BLE001
+                say(f"{modname} add_reference failed: {exc}")
+                break
+    # Fallback: raw pxr reference, then force payloads to load so the subtree
+    # actually populates (default load rules may leave them unloaded).
+    prim = stage.DefinePrim(prim_path, "Xform")
+    prim.GetReferences().AddReference(usd_path)
+    try:
+        stage.Load(prim.GetPath())
+    except Exception:  # noqa: BLE001
+        pass
+    say(f"referenced {prim_path} via pxr fallback")
+    return prim
+
+
+def _first_resolvable(paths, label):
+    """First USD path the resolver can open; else first usable candidate."""
+    cands = [p for p in paths if p and "None/" not in p]
+    for p in cands:
+        try:
+            if Sdf.Layer.FindOrOpen(p) is not None:
+                say(f"{label} -> {p}")
+                return p
+        except Exception:  # noqa: BLE001
+            continue
+    if cands:
+        say(f"WARNING: no {label} candidate resolved; trying {cands[0]!r}")
+        return cands[0]
+    return ""
 
 # -----------------------------------------------------------------------------
 # 4. Build the stage
 # -----------------------------------------------------------------------------
 assets_root = os.getenv("ISAAC_ASSETS_ROOT") or get_assets_root_path()
-SCENE_USD = os.getenv(
+say(f"assets_root = {assets_root}")
+SCENE_USD = _first_resolvable(
+    [
+        os.getenv("SCENE_USD", ""),
+        f"{assets_root}/Isaac/Environments/Simple_Warehouse/warehouse.usd",
+    ],
     "SCENE_USD",
-    f"{assets_root}/Isaac/Environments/Simple_Warehouse/warehouse.usd" if assets_root else "",
 )
-ROBOT_USD = os.getenv(
-    "ROBOT_USD", f"{assets_root}/Isaac/Robots/Carter/nova_carter.usd" if assets_root else ""
+# Nova Carter moved under a vendor folder in 6.0 (Isaac/Robots/NVIDIA/Carter/...).
+ROBOT_USD = _first_resolvable(
+    [
+        os.getenv("ROBOT_USD", ""),
+        f"{assets_root}/Isaac/Robots/NVIDIA/Carter/nova_carter/nova_carter.usd",
+        f"{assets_root}/Isaac/Robots/NVIDIA/Carter/nova_carter.usd",
+        f"{assets_root}/Isaac/Robots/Carter/nova_carter.usd",
+    ],
+    "ROBOT_USD",
 )
 ROBOT_NAME = os.getenv("ROBOT_NAME", "carter")
 ROBOT_PRIM = f"/World/{ROBOT_NAME}"
@@ -137,14 +240,15 @@ if self_test:
     cube.GetSizeAttr().Set(1.0)
     UsdGeom.Xformable(cube).AddTranslateOp().Set(Gf.Vec3d(0, 0, 0.5))
 else:
-    if not assets_root:
-        say("ERROR: no asset root. Set ISAAC_ASSETS_ROOT or SELF_TEST=1.")
+    if not SCENE_USD or not ROBOT_USD:
+        say("ERROR: could not resolve scene/robot USD. Set ISAAC_ASSETS_ROOT, "
+            "SCENE_USD, ROBOT_USD, or SELF_TEST=1.")
         simulation_app.close()
         sys.exit(1)
     say(f"Loading scene: {SCENE_USD}")
-    add_reference_to_stage(usd_path=SCENE_USD, prim_path="/World/Warehouse")
+    _add_ref(_stage, SCENE_USD, "/World/Warehouse")
     say(f"Spawning {ROBOT_NAME} from {ROBOT_USD}")
-    add_reference_to_stage(usd_path=ROBOT_USD, prim_path=ROBOT_PRIM)
+    _add_ref(_stage, ROBOT_USD, ROBOT_PRIM)
     from pxr import Gf, UsdGeom  # type: ignore
 
     prim = _stage.GetPrimAtPath(ROBOT_PRIM)
@@ -159,11 +263,80 @@ else:
         try:
             for r in json.loads(extras):
                 p = f"/World/{r['name']}"
-                add_reference_to_stage(usd_path=ROBOT_USD, prim_path=p)
+                _add_ref(_stage, ROBOT_USD, p)
         except Exception as exc:
             say(f"EXTRA_ROBOTS_JSON: {exc}")
 
 world.reset()
+
+
+# -----------------------------------------------------------------------------
+# 4b. Find the real articulation root inside the referenced robot. /World/carter
+#     is just our Xform wrapper; Nova Carter's articulation/odometry root is a
+#     nested prim (NVIDIA's own guide targets `chassis_link`). Pointing the
+#     ArticulationController / ComputeOdometry at the wrapper fails with
+#     "not a valid rigid body or articulation root", so discover it here.
+# -----------------------------------------------------------------------------
+def _find_drive_prims(stage, wrapper_path: str):
+    """Return (articulation_root, chassis_rigid_body).
+
+    The ArticulationController needs the prim carrying ArticulationRootAPI;
+    ComputeOdometry needs a rigid body (the chassis). For carter_v1 these differ:
+    root = /World/carter (ArticulationRoot), chassis = /World/carter/chassis_link.
+    """
+    wrapper = stage.GetPrimAtPath(wrapper_path)
+    art_root = chassis = base_link = None
+    if wrapper and wrapper.IsValid():
+        for prim in Usd.PrimRange(wrapper):
+            name = prim.GetName()
+            if art_root is None and prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+                art_root = prim.GetPath().pathString
+            if chassis is None and name == "chassis_link":
+                chassis = prim.GetPath().pathString
+            if base_link is None and name == "base_link":
+                base_link = prim.GetPath().pathString
+    art = art_root or chassis or base_link or wrapper_path
+    chas = chassis or base_link or art_root or wrapper_path
+    return art, chas
+
+
+def _dump_robot_tree(stage, wrapper_path: str) -> None:
+    """Log physics-relevant prims + joints so we can see the articulation root
+    and the wheel joint names (which differ between Carter variants)."""
+    wrapper = stage.GetPrimAtPath(wrapper_path)
+    n = 0
+    joints: list[str] = []
+    say(f"--- prim scan under {wrapper_path} ---")
+    if wrapper and wrapper.IsValid():
+        for prim in Usd.PrimRange(wrapper):
+            n += 1
+            tn = str(prim.GetTypeName())
+            apis = []
+            if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+                apis.append("ArticulationRoot")
+            if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                apis.append("RigidBody")
+            if apis or prim.GetName() in ("chassis_link", "base_link", "carter", "nova_carter"):
+                say(f"    {prim.GetPath()}  <{tn}>  {','.join(apis) or '-'}")
+            if "Joint" in tn or "wheel" in prim.GetName().lower():
+                joints.append(f"{prim.GetName()}<{tn}>")
+    say(f"--- joints ({len(joints)}): {joints[:24]} ---")
+    say(f"--- scanned {n} prims ---")
+
+
+if not self_test:
+    # A bare add-reference can need a few app updates before the articulation
+    # is fully parsed and traversable.
+    for _ in range(20):
+        simulation_app.update()
+    _dump_robot_tree(_stage, ROBOT_PRIM)
+
+if self_test:
+    ARTICULATION_ROOT = CHASSIS_PRIM = ROBOT_PRIM
+else:
+    ARTICULATION_ROOT, CHASSIS_PRIM = _find_drive_prims(_stage, ROBOT_PRIM)
+say(f"articulation root (ArtCtl) : {ARTICULATION_ROOT}")
+say(f"chassis prim   (Odom)     : {CHASSIS_PRIM}")
 
 
 # -----------------------------------------------------------------------------
@@ -231,8 +404,10 @@ if ENABLE_DIFF_DRIVE and not self_test:
     CHASSIS_FRAME_ID = os.getenv("CHASSIS_FRAME_ID", "base_link")
     WHEEL_RADIUS = float(os.getenv("WHEEL_RADIUS", "0.14"))
     WHEEL_DISTANCE = float(os.getenv("WHEEL_DISTANCE", "0.413"))
-    LEFT_WHEEL_JOINT = os.getenv("LEFT_WHEEL_JOINT", "joint_wheel_left")
-    RIGHT_WHEEL_JOINT = os.getenv("RIGHT_WHEEL_JOINT", "joint_wheel_right")
+    # carter_v1 drive joints are 'left_wheel'/'right_wheel' (Nova Carter used
+    # 'joint_wheel_left/right'); override per robot via env if needed.
+    LEFT_WHEEL_JOINT = os.getenv("LEFT_WHEEL_JOINT", "left_wheel")
+    RIGHT_WHEEL_JOINT = os.getenv("RIGHT_WHEEL_JOINT", "right_wheel")
 
     # Pick node types by extension version (same dance as section 5).
     _new_drive = {
@@ -291,9 +466,9 @@ if ENABLE_DIFF_DRIVE and not self_test:
                     ("TwistSub.inputs:topicName", CMD_VEL_TOPIC),
                     ("DiffCtl.inputs:wheelDistance", WHEEL_DISTANCE),
                     ("DiffCtl.inputs:wheelRadius", WHEEL_RADIUS),
-                    ("ArtCtl.inputs:targetPrim", [ROBOT_PRIM]),
+                    ("ArtCtl.inputs:targetPrim", [ARTICULATION_ROOT]),
                     ("ArtCtl.inputs:jointNames", [LEFT_WHEEL_JOINT, RIGHT_WHEEL_JOINT]),
-                    ("ComputeOdom.inputs:chassisPrim", [ROBOT_PRIM]),
+                    ("ComputeOdom.inputs:chassisPrim", [CHASSIS_PRIM]),
                     ("PublishOdom.inputs:topicName", ODOM_TOPIC),
                     ("PublishOdom.inputs:odomFrameId", ODOM_FRAME_ID),
                     ("PublishOdom.inputs:chassisFrameId", CHASSIS_FRAME_ID),
@@ -318,8 +493,36 @@ else:
 # -----------------------------------------------------------------------------
 # 6. Play and step forever — this drives the graph (OnPlaybackTick).
 # -----------------------------------------------------------------------------
-omni.timeline.get_timeline_interface().play()
+# Reset FIRST (initialise physics/articulation), then play LAST. Order matters:
+# world.reset() stops the timeline, so if it runs *after* play() the timeline is
+# left stopped and OnPlaybackTick never fires — every graph publisher (/tf,/odom)
+# goes silent even though the publishers exist.
 world.reset()
+omni.timeline.get_timeline_interface().play()
+
+
+def _set_camera_view(eye, target):
+    """Aim the active viewport camera so the WebRTC stream shows the scene
+    (not just the floor). STREAM mode only; harmless if unavailable."""
+    for _mod in ("isaacsim.core.utils.viewports", "omni.isaac.core.utils.viewports"):
+        try:
+            importlib.import_module(_mod).set_camera_view(eye=eye, target=target)
+            say(f"camera set via {_mod}: eye={eye} target={target}")
+            return
+        except Exception:  # noqa: BLE001
+            continue
+    say("set_camera_view unavailable; orbit/zoom in the streamed GUI instead")
+
+
+if _STREAM:
+    for _ in range(5):
+        simulation_app.update()  # let the viewport come up before aiming it
+    # Elevated 3/4 view of the warehouse centred on Carter's start. Override with
+    # CAM_EYE / CAM_TARGET (comma-separated x,y,z) if you want a different angle.
+    _set_camera_view(
+        [float(v) for v in os.getenv("CAM_EYE", "6,6,5").split(",")],
+        [float(v) for v in os.getenv("CAM_TARGET", "0,0,0.5").split(",")],
+    )
 say("ROS2_READY: Isaac is headless and publishing ROS 2. Connect RViz from your laptop.")
 if ENABLE_DIFF_DRIVE and not self_test:
     say(
@@ -330,16 +533,18 @@ if ENABLE_DIFF_DRIVE and not self_test:
 else:
     say(f"  Publishes: /clock, /tf   (robot prim: {ROBOT_PRIM})")
 
+# Heartbeat is OFF by default (it spams the log). Set HEARTBEAT_STEPS=N to get a
+# periodic "still alive" line every N physics steps.
+_HEARTBEAT = int(os.getenv("HEARTBEAT_STEPS", "0"))
 step = 0
 try:
     while simulation_app.is_running():
-        # render=False: we publish ROS 2 (TF/odom/scan via physics) and visualise
-        # in RViz on the laptop, so no GPU rendering is needed here. This also
-        # sidesteps the H200's missing RT cores (only the RTX renderer needs them)
-        # and runs far faster.
-        world.step(render=False)
+        # Render only when streaming (STREAM=1) so you can see it in the WebRTC
+        # client. Rendering also pumps the full app, which makes OnPlaybackTick
+        # fire reliably (so /tf,/odom publish). STREAM=0 is headless for RViz.
+        world.step(render=_STREAM)
         step += 1
-        if step % 600 == 0:
+        if _HEARTBEAT and step % _HEARTBEAT == 0:
             say(f"sim running, step {step}")
 except KeyboardInterrupt:
     pass

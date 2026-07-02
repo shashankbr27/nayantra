@@ -16,7 +16,7 @@ Control API (port 8900):
     POST /goto?waypoint=NAME -> send Carter to a named waypoint
     POST /goto?x=..&y=..     -> send Carter to a coordinate
 
-Motion is kinematic (smooth glide to the target via set_world_pose) — robust and
+Motion is kinematic (smooth glide to the target via USD xform ops) — robust and
 visually clear. Swap to Nav2/wheel control later for true path planning.
 
 Env: SCENE_USD, ROBOT_USD, ISAAC_ASSETS_ROOT, ROBOT_X, ROBOT_Y, CTRL_PORT, SPEED,
@@ -33,8 +33,8 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # -----------------------------------------------------------------------------
-# 1. SimulationApp with WebRTC livestream (requires an NVENC-capable GPU — any
-#    RTX 6000 Ada / A6000 / RTX 4000-class card with the video encoder works).
+# 1. SimulationApp with WebRTC livestream (needs an RTX GPU with a hardware video
+#    encoder — RTX 6000 Ada / A6000 / RTX 4000-class).
 # -----------------------------------------------------------------------------
 from isaacsim import SimulationApp
 
@@ -65,25 +65,79 @@ except Exception as exc:  # noqa: BLE001
 # -----------------------------------------------------------------------------
 # 2. Core imports (valid only after SimulationApp exists)
 # -----------------------------------------------------------------------------
-import numpy as np  # noqa: E402
-from isaacsim.core.api import World  # noqa: E402
-from isaacsim.core.utils.nucleus import get_assets_root_path  # noqa: E402
-from isaacsim.core.utils.stage import add_reference_to_stage  # noqa: E402
+import importlib  # noqa: E402
 
-# Single-prim xform wrapper (name varies across 5.x/6.x — try both).
-try:
-    from isaacsim.core.prims import SingleXFormPrim as _XForm  # type: ignore
-except Exception:  # noqa: BLE001
-    from isaacsim.core.prims import XFormPrim as _XForm  # type: ignore
+import omni.usd  # noqa: E402
+from isaacsim.core.api import World  # noqa: E402
+from pxr import Gf, Sdf, UsdGeom  # noqa: E402
+
+# get_assets_root_path moved across versions:
+#   6.0 -> isaacsim.storage.native ; 4.5 -> isaacsim.core.utils.nucleus ;
+#   old -> omni.isaac.core.utils.nucleus. Try them in order.
+get_assets_root_path = None
+for _m in (
+    "isaacsim.storage.native",
+    "isaacsim.core.utils.nucleus",
+    "omni.isaac.core.utils.nucleus",
+):
+    try:
+        get_assets_root_path = importlib.import_module(_m).get_assets_root_path
+        say(f"get_assets_root_path from {_m}")
+        break
+    except Exception:  # noqa: BLE001
+        continue
+if get_assets_root_path is None:
+    def get_assets_root_path():  # type: ignore
+        return None
 
 # -----------------------------------------------------------------------------
 # 3. Scene config + named waypoints
 # -----------------------------------------------------------------------------
 assets_root = os.getenv("ISAAC_ASSETS_ROOT") or get_assets_root_path()
-SCENE_USD = os.getenv(
-    "SCENE_USD", f"{assets_root}/Isaac/Environments/Simple_Warehouse/warehouse.usd"
+say(f"assets_root = {assets_root}")
+
+
+def _first_resolvable(paths: list[str], label: str) -> str:
+    """Return the first USD path the asset resolver can open; if none resolve,
+    fall back to the first usable candidate (and warn) so we still attempt a
+    load. Lets the script auto-adapt to per-version asset path changes."""
+    candidates = [p for p in paths if p and "None/" not in p]
+    for p in candidates:
+        try:
+            if Sdf.Layer.FindOrOpen(p) is not None:
+                say(f"{label} -> {p}")
+                return p
+        except Exception:  # noqa: BLE001
+            continue
+    if candidates:
+        say(f"WARNING: no {label} candidate resolved; trying {candidates[0]!r}. "
+            f"If it doesn't appear, set the env var to the correct USD path.")
+        return candidates[0]
+    raise RuntimeError(
+        f"No {label} candidates available (assets_root={assets_root!r}). "
+        "Set ISAAC_ASSETS_ROOT, or SCENE_USD / ROBOT_USD explicitly."
+    )
+
+
+SCENE_USD = _first_resolvable(
+    [
+        os.getenv("SCENE_USD", ""),
+        f"{assets_root}/Isaac/Environments/Simple_Warehouse/warehouse.usd",
+        f"{assets_root}/Isaac/Environments/Simple_Warehouse/warehouse_with_forklifts.usd",
+    ],
+    "SCENE_USD",
 )
-ROBOT_USD = os.getenv("ROBOT_USD", f"{assets_root}/Isaac/Robots/Carter/nova_carter.usd")
+# Nova Carter moved under a vendor folder in 6.0 (Isaac/Robots/NVIDIA/Carter/...).
+# Try the 6.0 layout first, then older layouts; an explicit ROBOT_USD wins.
+ROBOT_USD = _first_resolvable(
+    [
+        os.getenv("ROBOT_USD", ""),
+        f"{assets_root}/Isaac/Robots/NVIDIA/Carter/nova_carter/nova_carter.usd",
+        f"{assets_root}/Isaac/Robots/NVIDIA/Carter/nova_carter.usd",
+        f"{assets_root}/Isaac/Robots/Carter/nova_carter.usd",
+    ],
+    "ROBOT_USD",
+)
 ROBOT_PRIM = "/World/carter"
 
 # Named places in the warehouse (x, y in metres). Edit/extend freely — the NL
@@ -101,15 +155,34 @@ WAYPOINTS: dict[str, tuple[float, float]] = {
     "center": (0.0, 0.0),
 }
 
-say(f"assets_root = {assets_root}")
 world = World(stage_units_in_meters=1.0)
-say(f"loading scene: {SCENE_USD}")
-add_reference_to_stage(SCENE_USD, "/World/Warehouse")
-say(f"spawning Carter: {ROBOT_USD}")
-add_reference_to_stage(ROBOT_USD, ROBOT_PRIM)
-world.reset()
+_stage = omni.usd.get_context().get_stage()
 
-carter = _XForm(ROBOT_PRIM)
+
+def _add_ref(usd_path: str, prim_path: str):
+    """Add a USD reference using plain pxr APIs — stable across all Isaac
+    versions (the isaacsim.* stage helpers were renamed in 6.0)."""
+    prim = _stage.DefinePrim(prim_path, "Xform")
+    prim.GetReferences().AddReference(usd_path)
+    return prim
+
+
+say(f"loading scene: {SCENE_USD}")
+_add_ref(SCENE_USD, "/World/Warehouse")
+say(f"spawning Carter: {ROBOT_USD}")
+_carter_prim = _add_ref(ROBOT_USD, ROBOT_PRIM)
+
+try:
+    world.reset()
+except Exception as exc:  # noqa: BLE001
+    say(f"world.reset note (continuing): {exc}")
+
+# Kinematic pose control via USD xform ops (version-independent). We own the
+# /World/carter wrapper Xform, so clearing + re-adding its ops is safe.
+_xf = UsdGeom.Xformable(_carter_prim)
+_xf.ClearXformOpOrder()
+_translate_op = _xf.AddTranslateOp()
+_rotate_op = _xf.AddRotateZOp()
 
 _state: dict = {
     "x": float(os.getenv("ROBOT_X", "0")),
@@ -123,12 +196,8 @@ _state: dict = {
 
 
 def _set_pose(x: float, y: float, yaw: float) -> None:
-    # quaternion (w,x,y,z) for a rotation about +Z
-    q = np.array([math.cos(yaw / 2.0), 0.0, 0.0, math.sin(yaw / 2.0)])
-    try:
-        carter.set_world_pose(position=np.array([x, y, 0.0]), orientation=q)
-    except Exception as exc:  # noqa: BLE001
-        say(f"set_world_pose failed: {exc}")
+    _translate_op.Set(Gf.Vec3d(float(x), float(y), 0.0))
+    _rotate_op.Set(float(math.degrees(yaw)))  # AddRotateZOp takes degrees
 
 
 _set_pose(_state["x"], _state["y"], 0.0)
@@ -218,7 +287,9 @@ try:
                 _state["y"] += dy / dist * step
                 _state["yaw"] = math.atan2(dy, dx)
                 _set_pose(_state["x"], _state["y"], _state["yaw"])
-        world.step(render=True)
+        # Render + pump the WebRTC stream without stepping physics, so our
+        # kinematic glide isn't fought by gravity/articulation dynamics.
+        simulation_app.update()
 except KeyboardInterrupt:
     pass
 finally:

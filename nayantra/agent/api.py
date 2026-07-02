@@ -15,6 +15,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -34,11 +35,30 @@ logger = logging.getLogger("nayantra.api")
 _agent: RMFAgent | None = None
 _store: MissionStore | None = None
 _health: HealthChecker | None = None
+_agent_lock = asyncio.Lock()
+
+
+async def get_agent() -> RMFAgent:
+    """
+    Lazily construct the RMFAgent on first use.
+
+    Constructing it imports the LLM SDK (google-genai / anthropic / openai),
+    which is heavy and can take tens of seconds on a cold start. Doing it here
+    instead of in lifespan keeps /health responsive immediately — the heavy
+    import happens off the event loop (asyncio.to_thread) on the first command
+    or during background warm-up, not during startup.
+    """
+    global _agent
+    if _agent is None:
+        async with _agent_lock:
+            if _agent is None:
+                _agent = await asyncio.to_thread(RMFAgent)
+    return _agent
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _agent, _store, _health
+    global _store, _health
     if not settings.USE_AUTH:
         logger.warning(
             "USE_AUTH=false — the agent API is unauthenticated. "
@@ -51,13 +71,23 @@ async def lifespan(app: FastAPI):
             "Generate a strong secret: "
             'python -c "import secrets; print(secrets.token_urlsafe(48))"'
         )
-    _agent = RMFAgent()
     _store = MissionStore()
     _health = HealthChecker()
-    report = await _health.run_all()
-    if not report.ready:
-        logger.warning("Startup health check FAILED — some services may be unavailable")
+
+    # Warm up the agent + run health checks in the BACKGROUND so the HTTP server
+    # (and /health) is available immediately. Nothing here blocks startup.
+    async def _warmup() -> None:
+        try:
+            await get_agent()
+            report = await _health.run_all()
+            if not report.ready:
+                logger.warning("Startup health check: some services unavailable")
+        except Exception as exc:  # noqa: BLE001
+            logger.error(f"Warm-up failed (will retry lazily on first command): {exc}")
+
+    warmup_task = asyncio.create_task(_warmup())
     yield
+    warmup_task.cancel()
     if _agent:
         await _agent.close()
     if _health:
@@ -109,9 +139,20 @@ async def readiness():
 @app.post("/run", response_model=CommandResponse)
 async def run_command(req: CommandRequest):
     """Execute a natural-language robot command."""
-    if _agent is None:
-        raise HTTPException(503, "Agent not initialised")
-    mission = await _agent.run(req.command)
+    try:
+        agent = await get_agent()
+        mission = await agent.run(req.command)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("run_command failed")
+        # Return a readable, JSON-parseable error instead of a bare 500 so the
+        # dashboard can display the actual reason.
+        return CommandResponse(
+            mission_id="",
+            command=req.command,
+            summary=f"Agent error: {exc}",
+            success=False,
+            step_count=0,
+        )
     if _store:
         await _store.save(mission)
     return CommandResponse(
@@ -126,10 +167,9 @@ async def run_command(req: CommandRequest):
 @app.get("/stream")
 async def stream_command(command: str):
     """Execute a command with Server-Sent Events streaming."""
-    if _agent is None:
-        raise HTTPException(503, "Agent not initialised")
+    agent = await get_agent()
     return StreamingResponse(
-        _agent.stream_run(command),
+        agent.stream_run(command),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

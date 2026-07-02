@@ -2,10 +2,10 @@
 # =============================================================================
 # scripts/run_isaac_workstation.sh — Isaac Sim + WebRTC on a GPU workstation
 #
-# For a normal Ubuntu workstation with an NVENC-capable GPU (RTX 6000 Ada,
+# For a normal Ubuntu workstation with a modern RTX GPU (RTX 6000 Ada,
 # A6000, RTX, L40S, ...) and Docker. No scheduler, no container gymnastics.
 #
-# This GPU has NVENC + RT cores, so Isaac's built-in WebRTC livestream works:
+# The GPU's hardware video encoder lets Isaac's built-in WebRTC livestream work:
 # you connect the "Isaac Sim WebRTC Streaming Client" from your laptop and see
 # the real photoreal viewport.
 #
@@ -23,7 +23,7 @@
 set -euo pipefail
 
 # Isaac Sim 6.0.1 (latest stable, Jun 2026) — validated on the 580 driver branch,
-# Ubuntu 24.04, and RT-core GPUs (RTX 6000 Ada qualifies). NOTE: driver 595 is
+# Ubuntu 24.04, and modern RTX GPUs (RTX 6000 Ada qualifies). NOTE: driver 595 is
 # reported to break CUDA detection, so keep the 580.x driver you have.
 IMAGE="${IMAGE:-nvcr.io/nvidia/isaac-sim:6.0.1}"
 CONTAINER_NAME="${CONTAINER_NAME:-isaac-sim}"

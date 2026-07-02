@@ -114,50 +114,17 @@ class OpenRMFClient:
     # ------------------------------------------------------------------
 
     async def get_fleets(self) -> Any:
+        # No fleet is fabricated in debug mode: a real fleet only appears once a
+        # fleet adapter (Isaac Sim / Gazebo / real robot) is subscribed to RMF.
+        # Returning empty is the honest stub state — "no fleet connected yet".
         if self.debug:
-            return self._sim(
-                [
-                    {
-                        "name": "turtlebot_fleet",
-                        "robots": {
-                            "turtlebot3_1": {
-                                "name": "turtlebot3_1",
-                                "status": "idle",
-                                "task_id": "",
-                                "battery": 0.94,
-                                "location": {"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"},
-                            },
-                            "turtlebot3_2": {
-                                "name": "turtlebot3_2",
-                                "status": "charging",
-                                "task_id": "",
-                                "battery": 0.61,
-                                "location": {"x": 3.2, "y": 1.5, "yaw": 0.0, "level_name": "L1"},
-                            },
-                            "turtlebot3_3": {
-                                "name": "turtlebot3_3",
-                                "status": "working",
-                                "task_id": "sim-task-001",
-                                "battery": 0.78,
-                                "location": {"x": -3.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
-                            },
-                        },
-                    }
-                ]
-            )
+            return self._sim([])
         return await self._get("/fleets")
 
     async def get_robot_state(self, fleet_name: str, robot_name: str) -> Any:
+        # No fabricated robot in debug mode — there is no subscribed fleet yet.
         if self.debug:
-            return self._sim(
-                {
-                    "name": robot_name,
-                    "fleet": fleet_name,
-                    "status": "idle",
-                    "battery": 0.9,
-                    "location": {"x": 1.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
-                }
-            )
+            return self._sim(None)
         return await self._get(f"/fleets/{fleet_name}/robots/{robot_name}")
 
     async def get_fleet_log(self, fleet_name: str) -> Any:

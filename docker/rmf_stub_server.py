@@ -30,36 +30,9 @@ def health():
 
 @app.get("/fleets")
 def get_fleets():
-    return _ok(
-        [
-            {
-                "name": "turtlebot_fleet",
-                "robots": {
-                    "turtlebot3_1": {
-                        "name": "turtlebot3_1",
-                        "status": "idle",
-                        "battery": 0.94,
-                        "task_id": "",
-                        "location": {"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"},
-                    },
-                    "turtlebot3_2": {
-                        "name": "turtlebot3_2",
-                        "status": "charging",
-                        "battery": 0.61,
-                        "task_id": "",
-                        "location": {"x": 3.2, "y": 1.5, "yaw": 0.0, "level_name": "L1"},
-                    },
-                    "turtlebot3_3": {
-                        "name": "turtlebot3_3",
-                        "status": "working",
-                        "battery": 0.78,
-                        "task_id": "sim-task-001",
-                        "location": {"x": -3.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
-                    },
-                },
-            }
-        ]
-    )
+    # Empty until a real fleet adapter (Isaac Sim / Gazebo / robot) subscribes.
+    # No fabricated fleet — the stub reflects "nothing connected yet".
+    return _ok([])
 
 
 @app.get("/tasks")
