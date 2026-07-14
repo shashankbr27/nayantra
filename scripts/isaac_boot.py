@@ -47,6 +47,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from pathlib import Path
 
 # -----------------------------------------------------------------------------
 # 1. SimulationApp — headless, no livestream.
@@ -67,10 +68,8 @@ _STREAM = os.getenv("STREAM", "0").strip().lower() in ("1", "true", "yes")
 if _STREAM:
     import isaacsim as _isaacsim_pkg
 
-    _apps_dir = os.path.join(os.path.dirname(_isaacsim_pkg.__file__), "apps")
-    _experience = os.getenv(
-        "STREAM_EXPERIENCE", os.path.join(_apps_dir, "isaacsim.exp.full.streaming.kit")
-    )
+    _apps_dir = Path(_isaacsim_pkg.__file__).parent / "apps"
+    _experience = os.getenv("STREAM_EXPERIENCE", str(_apps_dir / "isaacsim.exp.full.streaming.kit"))
     simulation_app = SimulationApp(
         {
             "headless": True,
@@ -142,6 +141,7 @@ for _m in (
     except Exception:  # noqa: BLE001
         continue
 if get_assets_root_path is None:
+
     def get_assets_root_path():  # type: ignore
         return None
 
@@ -201,6 +201,7 @@ def _first_resolvable(paths, label):
         return cands[0]
     return ""
 
+
 # -----------------------------------------------------------------------------
 # 4. Build the stage
 # -----------------------------------------------------------------------------
@@ -241,8 +242,10 @@ if self_test:
     UsdGeom.Xformable(cube).AddTranslateOp().Set(Gf.Vec3d(0, 0, 0.5))
 else:
     if not SCENE_USD or not ROBOT_USD:
-        say("ERROR: could not resolve scene/robot USD. Set ISAAC_ASSETS_ROOT, "
-            "SCENE_USD, ROBOT_USD, or SELF_TEST=1.")
+        say(
+            "ERROR: could not resolve scene/robot USD. Set ISAAC_ASSETS_ROOT, "
+            "SCENE_USD, ROBOT_USD, or SELF_TEST=1."
+        )
         simulation_app.close()
         sys.exit(1)
     say(f"Loading scene: {SCENE_USD}")

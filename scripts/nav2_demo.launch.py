@@ -25,18 +25,19 @@ hangs in 'configuring' (i.e. /clock is silent).
 """
 
 import os
+from pathlib import Path
 
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess
 from launch_ros.actions import Node
 
-_HERE = os.path.dirname(os.path.realpath(__file__))
-_REPO = os.path.abspath(os.path.join(_HERE, ".."))
+_HERE = Path(__file__).resolve().parent
+_REPO = _HERE.parent
 
 
 def generate_launch_description() -> LaunchDescription:
-    params = os.path.join(_REPO, "config", "nav2", "carter_nav2.yaml")
-    odom_to_tf = os.path.join(_HERE, "odom_to_tf.py")
+    params = str(_REPO / "config" / "nav2" / "carter_nav2.yaml")
+    odom_to_tf = str(_HERE / "odom_to_tf.py")
     use_sim_time = os.getenv("USE_SIM_TIME", "true").lower() in ("1", "true", "yes")
     common = [params, {"use_sim_time": use_sim_time}]
 
@@ -49,9 +50,7 @@ def generate_launch_description() -> LaunchDescription:
     ]
 
     def nav(pkg: str, exe: str, name: str) -> Node:
-        return Node(
-            package=pkg, executable=exe, name=name, output="screen", parameters=common
-        )
+        return Node(package=pkg, executable=exe, name=name, output="screen", parameters=common)
 
     return LaunchDescription(
         [

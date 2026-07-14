@@ -606,9 +606,7 @@ class RMFAgent:
             "tools": [{"function_declarations": decls}],
             "temperature": 0,
         }
-        contents: list[Any] = [
-            types.Content(role="user", parts=[types.Part(text=command)])
-        ]
+        contents: list[Any] = [types.Content(role="user", parts=[types.Part(text=command)])]
         context: dict[str, Any] = {}
         final_text: str | None = None
 
@@ -650,9 +648,7 @@ class RMFAgent:
                     else {"error": sr.error or "failed"}
                 )
                 response_parts.append(
-                    types.Part.from_function_response(
-                        name=fc.name, response={"result": payload}
-                    )
+                    types.Part.from_function_response(name=fc.name, response={"result": payload})
                 )
 
             # Feed all tool results back for the next iteration.

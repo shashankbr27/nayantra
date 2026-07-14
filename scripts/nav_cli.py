@@ -31,6 +31,7 @@ import json
 import math
 import os
 import sys
+from pathlib import Path
 
 # Built-in warehouse waypoints (x, y, yaw) in metres, map frame. Carter spawns at
 # (0,0). Tune these to the real warehouse layout once basic motion is confirmed.
@@ -48,9 +49,9 @@ WAYPOINTS: dict[str, tuple[float, float, float]] = {
 
 def load_waypoints() -> dict[str, tuple]:
     path = os.getenv("WAYPOINTS_FILE", "")
-    if path and os.path.isfile(path):
+    if path and Path(path).is_file():
         try:
-            raw = json.loads(open(path, encoding="utf-8").read())
+            raw = json.loads(Path(path).read_text(encoding="utf-8"))
             return {k.lower(): tuple(v) for k, v in raw.items()}
         except Exception as exc:  # noqa: BLE001
             print(f"(bad WAYPOINTS_FILE: {exc}; using built-ins)")
@@ -157,7 +158,9 @@ def main() -> None:
         run(" ".join(args))
     else:
         print("Connected to Nav2. Waypoints:", ", ".join(wps))
-        print("Type a command ('exit' to quit). Examples: 'go to the loading dock', 'zone_a', '3 -2'")
+        print(
+            "Type a command ('exit' to quit). Examples: 'go to the loading dock', 'zone_a', '3 -2'"
+        )
         while True:
             try:
                 cmd = input("\nnav> ").strip()

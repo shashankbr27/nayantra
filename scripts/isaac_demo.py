@@ -87,8 +87,10 @@ for _m in (
     except Exception:  # noqa: BLE001
         continue
 if get_assets_root_path is None:
+
     def get_assets_root_path():  # type: ignore
         return None
+
 
 # -----------------------------------------------------------------------------
 # 3. Scene config + named waypoints
@@ -110,8 +112,10 @@ def _first_resolvable(paths: list[str], label: str) -> str:
         except Exception:  # noqa: BLE001
             continue
     if candidates:
-        say(f"WARNING: no {label} candidate resolved; trying {candidates[0]!r}. "
-            f"If it doesn't appear, set the env var to the correct USD path.")
+        say(
+            f"WARNING: no {label} candidate resolved; trying {candidates[0]!r}. "
+            f"If it doesn't appear, set the env var to the correct USD path."
+        )
         return candidates[0]
     raise RuntimeError(
         f"No {label} candidates available (assets_root={assets_root!r}). "
