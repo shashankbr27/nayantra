@@ -30,6 +30,13 @@ Env (core):
   SCENE_USD / ROBOT_USD / ISAAC_ASSETS_ROOT
   SELF_TEST=1        ground plane only (no external assets), still publishes TF
 
+Env (lidar — obstacle avoidance; needs carter_v1_physx_lidar.usd or similar):
+  LIDAR              0/1 (default 0) — publish the robot's PhysX lidar as /scan
+  LIDAR_TOPIC        default /scan
+  LIDAR_FRAME_ID     default carter_lidar (must match the base_link->lidar
+                     static TF published by nav2_demo.launch.py)
+  LIDAR_PRIM         explicit lidar prim path (default: auto-discover)
+
 Env (drive graph — carter_v1 defaults; override per your USD):
   ENABLE_DIFF_DRIVE  0/1 (default 1; auto-skipped in SELF_TEST)
   CMD_VEL_TOPIC      default /cmd_vel
@@ -109,6 +116,24 @@ say(
     f"ROS_DOMAIN_ID={os.getenv('ROS_DOMAIN_ID', '0')}  "
     f"RMW={os.getenv('RMW_IMPLEMENTATION', 'default')}"
 )
+
+# LIDAR=1 -> publish the robot's PhysX lidar as /scan so Nav2's costmap obstacle
+# layer can see (and avoid) shelves/props. Requires a robot USD that carries a
+# Lidar prim (carter_v1_physx_lidar.usd — run_demo.sh selects it automatically).
+# Default 0: current no-lidar behaviour is untouched. The sensor extension must
+# be enabled BEFORE the stage composes, or the Lidar prim type is unknown.
+ENABLE_LIDAR = os.getenv("LIDAR", "0").strip().lower() in ("1", "true", "yes")
+_LIDAR_EXT = None
+if ENABLE_LIDAR:
+    for ext in ("isaacsim.sensors.physx", "omni.isaac.range_sensor"):
+        try:
+            if enable_extension(ext):
+                _LIDAR_EXT = ext
+                break
+        except Exception:  # noqa: BLE001
+            continue
+    simulation_app.update()
+    say(f"lidar sensor extension: {_LIDAR_EXT or 'FAILED TO ENABLE (no /scan)'}")
 
 # -----------------------------------------------------------------------------
 # 3. Core imports
@@ -493,6 +518,98 @@ elif self_test:
 else:
     say("ENABLE_DIFF_DRIVE=0 — robot's TF will publish but won't drive on /cmd_vel.")
 
+
+# -----------------------------------------------------------------------------
+# 5c. Lidar OmniGraph (LIDAR=1): PhysX lidar -> ROS2PublishLaserScan on /scan.
+#     Nav2's costmap obstacle layer consumes this to mark/clear obstacles, which
+#     is what makes "route around the shelf / replan when blocked" work. Fully
+#     optional: any failure here degrades to the current no-lidar behaviour.
+# -----------------------------------------------------------------------------
+def _find_lidar_prim(stage, wrapper_path: str) -> str | None:
+    """First Lidar-typed prim under the robot (carter_v1_physx_lidar.usd has one
+    under chassis_link). Type name is 'Lidar' for the PhysX range sensor."""
+    wrapper = stage.GetPrimAtPath(wrapper_path)
+    if not (wrapper and wrapper.IsValid()):
+        return None
+    for prim in Usd.PrimRange(wrapper):
+        if "Lidar" in str(prim.GetTypeName()):
+            return prim.GetPath().pathString
+    return None
+
+
+if ENABLE_LIDAR and not self_test and _LIDAR_EXT:
+    LIDAR_TOPIC = os.getenv("LIDAR_TOPIC", "/scan")
+    LIDAR_FRAME_ID = os.getenv("LIDAR_FRAME_ID", "carter_lidar")
+    _lidar_path = os.getenv("LIDAR_PRIM") or _find_lidar_prim(_stage, ROBOT_PRIM)
+    if not _lidar_path:
+        say(
+            "WARNING: no Lidar prim found under the robot — /scan disabled. "
+            "Use a lidar-equipped USD (carter_v1_physx_lidar.usd) or set LIDAR_PRIM."
+        )
+    else:
+        # Log the lidar's offset from the chassis so the base_link->lidar static
+        # TF in nav2_demo.launch.py (env LIDAR_XYZ) can be tuned to match.
+        try:
+            _cache = UsdGeom.XformCache()
+            _rel = _cache.ComputeRelativeTransform(
+                _stage.GetPrimAtPath(_lidar_path), _stage.GetPrimAtPath(CHASSIS_PRIM)
+            )[0]
+            _t = _rel.ExtractTranslation()
+            say(
+                f"lidar prim: {_lidar_path}  offset from chassis: "
+                f"({_t[0]:.3f}, {_t[1]:.3f}, {_t[2]:.3f}) — export LIDAR_XYZ to match"
+            )
+        except Exception:  # noqa: BLE001
+            say(f"lidar prim: {_lidar_path}")
+        _new_lidar = {
+            "read_lidar": "isaacsim.sensors.physx.IsaacReadLidarBeams",
+            "publish_scan": "isaacsim.ros2.bridge.ROS2PublishLaserScan",
+        }
+        _old_lidar = {
+            "read_lidar": "omni.isaac.range_sensor.IsaacReadLidarBeams",
+            "publish_scan": "omni.isaac.ros2_bridge.ROS2PublishLaserScan",
+        }
+        lnt = _new_lidar if (_LIDAR_EXT == "isaacsim.sensors.physx") else _old_lidar
+        try:
+            og.Controller.edit(
+                {"graph_path": "/LidarGraph", "evaluator_name": "execution"},
+                {
+                    og.Controller.Keys.CREATE_NODES: [
+                        ("OnTick", "omni.graph.action.OnPlaybackTick"),
+                        ("SimTime", nt["simtime"]),
+                        ("ReadLidar", lnt["read_lidar"]),
+                        ("PublishScan", lnt["publish_scan"]),
+                    ],
+                    og.Controller.Keys.CONNECT: [
+                        ("OnTick.outputs:tick", "ReadLidar.inputs:execIn"),
+                        ("ReadLidar.outputs:execOut", "PublishScan.inputs:execIn"),
+                        ("SimTime.outputs:simulationTime", "PublishScan.inputs:timeStamp"),
+                        ("ReadLidar.outputs:azimuthRange", "PublishScan.inputs:azimuthRange"),
+                        ("ReadLidar.outputs:depthRange", "PublishScan.inputs:depthRange"),
+                        ("ReadLidar.outputs:horizontalFov", "PublishScan.inputs:horizontalFov"),
+                        (
+                            "ReadLidar.outputs:horizontalResolution",
+                            "PublishScan.inputs:horizontalResolution",
+                        ),
+                        ("ReadLidar.outputs:intensitiesData", "PublishScan.inputs:intensitiesData"),
+                        ("ReadLidar.outputs:linearDepthData", "PublishScan.inputs:linearDepthData"),
+                        ("ReadLidar.outputs:numCols", "PublishScan.inputs:numCols"),
+                        ("ReadLidar.outputs:numRows", "PublishScan.inputs:numRows"),
+                        ("ReadLidar.outputs:rotationRate", "PublishScan.inputs:rotationRate"),
+                    ],
+                    og.Controller.Keys.SET_VALUES: [
+                        ("ReadLidar.inputs:lidarPrim", [_lidar_path]),
+                        ("PublishScan.inputs:topicName", LIDAR_TOPIC),
+                        ("PublishScan.inputs:frameId", LIDAR_FRAME_ID),
+                    ],
+                },
+            )
+            say(f"Lidar graph created: {_lidar_path} -> {LIDAR_TOPIC} (frame {LIDAR_FRAME_ID})")
+        except Exception as exc:
+            say(f"WARNING: lidar graph setup failed (continuing without /scan): {exc}")
+elif ENABLE_LIDAR and not _LIDAR_EXT:
+    say("LIDAR=1 but no sensor extension loaded — /scan disabled.")
+
 # -----------------------------------------------------------------------------
 # 6. Play and step forever — this drives the graph (OnPlaybackTick).
 # -----------------------------------------------------------------------------
@@ -528,8 +645,9 @@ if _STREAM:
     )
 say("ROS2_READY: Isaac is headless and publishing ROS 2. Connect RViz from your laptop.")
 if ENABLE_DIFF_DRIVE and not self_test:
+    _scan = f", {os.getenv('LIDAR_TOPIC', '/scan')}" if ENABLE_LIDAR else ""
     say(
-        f"  Publishes: /clock, /tf, {os.getenv('ODOM_TOPIC', '/odom')}   "
+        f"  Publishes: /clock, /tf, {os.getenv('ODOM_TOPIC', '/odom')}{_scan}   "
         f"Subscribes: {os.getenv('CMD_VEL_TOPIC', '/cmd_vel')}   (robot prim: {ROBOT_PRIM})"
     )
     say("  Drive it: ros2 topic pub /cmd_vel geometry_msgs/Twist '{linear: {x: 0.2}}' --once")

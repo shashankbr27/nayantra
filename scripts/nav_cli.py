@@ -58,8 +58,10 @@ def load_waypoints() -> dict[str, tuple]:
     return dict(WAYPOINTS)
 
 
-def plan(command: str, wps: dict) -> list[str]:
-    """NL -> ordered waypoint names. Gemini if available; else substring match."""
+def plan(command: str, wps: dict) -> list:
+    """NL -> ordered goals. Each goal is a waypoint name (str) or [x, y] /
+    [x, y, yaw] raw map coordinates, so destinations do NOT have to be
+    hardcoded waypoints. Gemini if available; else substring match on names."""
     names = list(wps)
     key = os.getenv("GEMINI_API_KEY")
     if key:
@@ -68,8 +70,13 @@ def plan(command: str, wps: dict) -> list[str]:
 
             client = genai.Client(api_key=key)
             prompt = (
-                "You route a warehouse robot. Map the command to an ordered JSON "
-                f"array of waypoint names from this EXACT set: {names}. "
+                "You route a warehouse robot on a map in metres. Known named "
+                f"waypoints (name -> [x, y, yaw]): {json.dumps({k: list(v) for k, v in wps.items()})}. "
+                "Map the command to an ordered JSON array of goals. Each goal is "
+                "either one of those waypoint names (preferred when it matches) "
+                "or an [x, y] coordinate pair for destinations the names don't "
+                'cover (e.g. "2 metres east of the loading dock" -> offset the '
+                "waypoint's coordinates; +x is east, +y is north). "
                 f'Command: "{command}". Return ONLY the JSON array, no prose.'
             )
             resp = client.models.generate_content(
@@ -80,7 +87,16 @@ def plan(command: str, wps: dict) -> list[str]:
             text = (resp.text or "").strip().strip("`")
             if text.lower().startswith("json"):
                 text = text[4:].strip()
-            seq = [w for w in json.loads(text) if w in wps]
+            seq = []
+            for g in json.loads(text):
+                if isinstance(g, str) and g in wps:
+                    seq.append(g)
+                elif (
+                    isinstance(g, (list, tuple))
+                    and len(g) in (2, 3)
+                    and all(isinstance(v, (int, float)) for v in g)
+                ):
+                    seq.append([float(v) for v in g])
             if seq:
                 return seq
         except Exception as exc:  # noqa: BLE001
@@ -144,13 +160,14 @@ def main() -> None:
         keyname = command.strip().lower().replace(" ", "_")
         seq = [keyname] if keyname in wps else plan(command, wps)
         if not seq:
-            print("No waypoint matched. Known:", ", ".join(wps))
+            print("No destination matched. Known waypoints:", ", ".join(wps))
             return
-        print("Plan:", " -> ".join(seq))
-        for name in seq:
-            coords = wps[name]
+        labels = [g if isinstance(g, str) else f"({g[0]:g}, {g[1]:g})" for g in seq]
+        print("Plan:", " -> ".join(labels))
+        for goal, label in zip(seq, labels, strict=True):
+            coords = wps[goal] if isinstance(goal, str) else tuple(goal)
             x, y, yaw = coords if len(coords) == 3 else (*coords, 0.0)
-            if not goto_xy(x, y, yaw, name):
+            if not goto_xy(x, y, yaw, label):
                 break
 
     args = sys.argv[1:]

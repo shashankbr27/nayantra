@@ -1,14 +1,20 @@
 # =============================================================================
 # config/nav2/carter_nav2.yaml — minimal Nav2 params for carter_v1 in Isaac Sim.
 #
-# Scope of THIS file (deliberately minimal so it works first):
+# Scope of THIS file:
 #   * differential drive, base frame = base_link, odom topic = /odom
 #   * NO localization (AMCL): map -> odom is a static identity transform, so the
 #     robot navigates in the odom frame. Good for a sim demo; add AMCL + a real
 #     map later for drift-free, multi-room nav.
-#   * NO laser/obstacle layer: costmaps are rolling + inflation only, so the robot
-#     plans a straight path and drives to the goal in open space. Add the lidar
-#     (/scan) + an obstacle layer to avoid the warehouse shelves — follow-up step.
+#   * Obstacle avoidance: costmaps carry an obstacle layer fed by /scan (Isaac's
+#     PhysX lidar — run isaac with LIDAR=1). With no /scan publisher the layer
+#     stays empty (expected_update_rate 0.0 = never stale), so the no-lidar demo
+#     behaves exactly as before. Planner is NavFn with A*: when the lidar marks
+#     an obstacle on the current path, replanning routes around it — the "next
+#     best path" emerges from the costmap, no path enumeration needed.
+#   * Slow-down guardrail: RPP cost-regulated velocity scaling reduces speed as
+#     the path passes near obstacles; the optional collision_monitor (launch with
+#     COLLISION_MONITOR=1) adds hard slowdown/stop polygons straight off /scan.
 #
 # Frames must match Isaac: PublishOdometry uses odomFrameId=odom,
 # chassisFrameId=base_link, so robot_base_frame=base_link everywhere here.
@@ -64,6 +70,12 @@ controller_server:
       min_approach_linear_velocity: 0.05
       approach_velocity_scaling_dist: 0.6
       use_regulated_linear_velocity_scaling: true
+      # Safety guardrail: also scale speed down by costmap cost, so the robot
+      # slows as its path passes near lidar-detected obstacles.
+      use_cost_regulated_linear_velocity_scaling: true
+      cost_scaling_dist: 0.6
+      cost_scaling_gain: 1.0
+      inflation_cost_scaling_factor: 3.0  # must match inflation_layer cost_scaling_factor
       regulated_linear_scaling_min_radius: 0.9
       regulated_linear_scaling_min_speed: 0.25
       allow_reversing: false
@@ -83,7 +95,24 @@ local_costmap:
       height: 6
       resolution: 0.05
       robot_radius: 0.45
-      plugins: ["inflation_layer"]
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          data_type: "LaserScan"
+          marking: true
+          clearing: true
+          max_obstacle_height: 2.0
+          obstacle_max_range: 8.0
+          obstacle_min_range: 0.0
+          raytrace_max_range: 10.0
+          raytrace_min_range: 0.0
+          # 0.0 = never consider the source stale, so running WITHOUT the lidar
+          # (LIDAR=0) leaves this layer empty instead of wedging the costmap.
+          expected_update_rate: 0.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
@@ -102,7 +131,22 @@ global_costmap:
       resolution: 0.1
       robot_radius: 0.45
       track_unknown_space: false
-      plugins: ["inflation_layer"]
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          data_type: "LaserScan"
+          marking: true
+          clearing: true
+          max_obstacle_height: 2.0
+          obstacle_max_range: 8.0
+          obstacle_min_range: 0.0
+          raytrace_max_range: 10.0
+          raytrace_min_range: 0.0
+          expected_update_rate: 0.0  # tolerate a missing lidar (LIDAR=0 mode)
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
@@ -115,8 +159,8 @@ planner_server:
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.5
-      use_astar: false
-      allow_unknown: true
+      use_astar: true  # A* over the costmap; obstacles re-cost cells, so the
+      allow_unknown: true  # replanned route IS the "next best path" when blocked
 
 smoother_server:
   ros__parameters:
@@ -146,6 +190,45 @@ behavior_server:
     wait:
       plugin: "nav2_behaviors::Wait"
     simulate_ahead_time: 2.0
+
+# Optional hard safety guardrail (launch with COLLISION_MONITOR=1): sits between
+# the controller and the robot (controller publishes cmd_vel_raw; this node
+# publishes /cmd_vel), enforcing zones straight off /scan — no planner involved:
+#   * PolygonSlow: anything inside -> velocity clamped to 30%
+#   * PolygonStop: anything inside -> full stop until clear
+collision_monitor:
+  ros__parameters:
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_raw"
+    cmd_vel_out_topic: "cmd_vel"
+    enable_stamped_cmd_vel: false  # Isaac subscribes plain Twist
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 0.2
+    source_timeout: 5.0
+    base_shift_correction: true
+    stop_pub_timeout: 2.0
+    polygons: ["PolygonStop", "PolygonSlow"]
+    PolygonStop:
+      type: "polygon"
+      points: "[[0.6, 0.45], [0.6, -0.45], [-0.6, -0.45], [-0.6, 0.45]]"
+      action_type: "stop"
+      min_points: 4
+      visualize: true
+      polygon_pub_topic: "polygon_stop"
+    PolygonSlow:
+      type: "polygon"
+      points: "[[1.2, 0.7], [1.2, -0.7], [-0.7, -0.7], [-0.7, 0.7]]"
+      action_type: "slowdown"
+      slowdown_ratio: 0.3
+      min_points: 4
+      visualize: true
+      polygon_pub_topic: "polygon_slowdown"
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "scan"
+      enabled: true
 
 velocity_smoother:
   ros__parameters:
