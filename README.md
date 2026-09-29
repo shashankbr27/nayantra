@@ -254,6 +254,7 @@ nayantra/
 │   ├── rmf_client/         # Optional real Open-RMF client
 │   ├── rmf_bridge/         # Compat launcher → single-robot core
 │   ├── isaac_sim/ · ros2_adapter/ · zenoh_bridge/ · api/
+├── simulation/gazebo/      # Gazebo world generator, robot model, launch, Nav2 params
 ├── web/                    # Operator UI (React + TypeScript + Vite)
 ├── config/
 │   ├── maps/               # Map seeds
@@ -261,7 +262,7 @@ nayantra/
 │   ├── .env.example
 │   └── tools.json          # Generated tool definitions
 ├── docker/                 # Dockerfile.core · .mcp · .agent · compose
-├── tests/                  # Pytest suite (230 tests; tests/core = platform)
+├── tests/                  # Pytest suite (245 tests; tests/core = platform)
 ├── docs/
 ├── scripts/
 └── pyproject.toml
@@ -284,6 +285,35 @@ nayantra-core --scenario isaac_carter
 
 `bash scripts/run_demo.sh check` verifies ROS 2, Nav2 and the topics.
 `scripts/install_isaac_pip.sh` installs Isaac Sim 6.0 from pip without Docker.
+
+---
+
+## 🧪 Simulation Backends: Gazebo and Stub Mode
+
+This branch (`feat/stub-gazebo`) adds two backends that `dev` deliberately does
+not carry.
+
+| Backend | Needs | What it is for |
+|---|---|---|
+| **Gazebo** (Harmonic) | ROS 2 Humble or Jazzy, Nav2, `ros_gz` | Open-source multi-robot simulation. Each robot is a Nav2 robot under its own namespace, driven by the same `Nav2Adapter` as Isaac Sim and hardware. |
+| **Stub mode** | nothing (Python only) | Development, tests and UI work. Robots come from the core's built-in kinematic simulator. |
+
+```bash
+# Gazebo: two terminals, same ROS_DOMAIN_ID
+bash scripts/run_gazebo.sh sim        # Gazebo + bridge + Nav2 per robot
+bash scripts/run_gazebo.sh core       # nayantra-core --scenario gazebo_warehouse
+
+# Stub mode
+nayantra-core                         # warehouse_demo: 4 fleets, 16 simulated robots
+```
+
+The Gazebo world is generated from the Nayantra map, so the planning world and
+the physical world cannot drift apart. Architecture, frames and limits:
+[docs/gazebo_architecture.md](docs/gazebo_architecture.md). Stub mode:
+[docs/stub_mode.md](docs/stub_mode.md).
+
+> The Gazebo assets are consistency-tested in CI but **not yet run against a
+> live Gazebo + Nav2**. `bash scripts/run_gazebo.sh check` reports each piece.
 
 ---
 

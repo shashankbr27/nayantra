@@ -1,0 +1,107 @@
+{
+  "name": "Gazebo Warehouse + Nav2",
+  "description": "Two UGVs in a Gazebo Harmonic warehouse, each with its own Nav2 stack under /ugv_01 and /ugv_02 (bash scripts/run_gazebo.sh sim). Needs ROS 2 sourced in the core's shell, same ROS_DOMAIN_ID.",
+  "maps": [
+    "../maps/gazebo_warehouse.json"
+  ],
+  "fleets": [
+    {
+      "id": "gazebo_fleet",
+      "name": "Gazebo UGV Fleet (Nav2)",
+      "robot_type": "ugv",
+      "description": "Differential-drive UGVs in the Gazebo warehouse, driven through Nav2 (ROS 2 Humble or Jazzy).",
+      "color": "#f5a623",
+      "capabilities": [
+        "navigate",
+        "carry_payload",
+        "patrol",
+        "dock",
+        "charge"
+      ],
+      "navigation": {
+        "stack": "nav2",
+        "planner": "navfn (A*)",
+        "controller": "regulated_pure_pursuit",
+        "localization": "none"
+      },
+      "footprint": {
+        "shape": "circle",
+        "radius": 0.45
+      },
+      "limits": {
+        "max_speed": 0.5,
+        "max_accel": 0.5,
+        "max_decel": 1.0,
+        "max_yaw_rate": 1.5
+      },
+      "battery": {
+        "min_pct": 0,
+        "recharge_pct": 0,
+        "drain_pct_per_min_idle": 0,
+        "drain_pct_per_m": 0
+      },
+      "charging_required": false,
+      "map_ids": [
+        "gazebo_warehouse"
+      ],
+      "layer": "ground",
+      "communication": {
+        "protocol": "ros2",
+        "namespace": ""
+      },
+      "priority": 5
+    }
+  ],
+  "robots": [
+    {
+      "id": "ugv_01",
+      "name": "GZ UGV-1",
+      "fleet_id": "gazebo_fleet",
+      "manufacturer": "Nayantra",
+      "model": "nayantra_ugv",
+      "navigation": {
+        "map_id": "gazebo_warehouse",
+        "namespace": "ugv_01",
+        "frame": "map",
+        "base_frame": "base_link",
+        "odom_source": "odom",
+        "sensors": [
+          "lidar_2d"
+        ]
+      },
+      "physical": {
+        "payload_kg": 50,
+        "turning_radius": 0.0
+      },
+      "spawn": {
+        "waypoint_id": "recv_dock",
+        "battery_pct": 100
+      }
+    },
+    {
+      "id": "ugv_02",
+      "name": "GZ UGV-2",
+      "fleet_id": "gazebo_fleet",
+      "manufacturer": "Nayantra",
+      "model": "nayantra_ugv",
+      "navigation": {
+        "map_id": "gazebo_warehouse",
+        "namespace": "ugv_02",
+        "frame": "map",
+        "base_frame": "base_link",
+        "odom_source": "odom",
+        "sensors": [
+          "lidar_2d"
+        ]
+      },
+      "physical": {
+        "payload_kg": 50,
+        "turning_radius": 0.0
+      },
+      "spawn": {
+        "waypoint_id": "ship_dock",
+        "battery_pct": 100
+      }
+    }
+  ]
+}

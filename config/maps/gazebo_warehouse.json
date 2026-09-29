@@ -1,0 +1,547 @@
+{
+  "id": "gazebo_warehouse",
+  "name": "Gazebo Warehouse",
+  "description": "24 x 16 m warehouse floor for the Gazebo (Harmonic) simulation: four shelf rows, a main aisle, a north and a south loop, two docks and a charger. simulation/gazebo/generate_world.py builds the SDF world from this file, so the map and the physical world cannot drift apart.",
+  "frame": "map",
+  "bounds": {
+    "min_x": -12,
+    "min_y": -8,
+    "max_x": 12,
+    "max_y": 8
+  },
+  "walls": [
+    [
+      [
+        -12,
+        -8
+      ],
+      [
+        12,
+        -8
+      ],
+      [
+        12,
+        8
+      ],
+      [
+        -12,
+        8
+      ],
+      [
+        -12,
+        -8
+      ]
+    ]
+  ],
+  "obstacles": [
+    [
+      [
+        -9,
+        2.5
+      ],
+      [
+        -3,
+        2.5
+      ],
+      [
+        -3,
+        3.5
+      ],
+      [
+        -9,
+        3.5
+      ]
+    ],
+    [
+      [
+        3,
+        2.5
+      ],
+      [
+        9,
+        2.5
+      ],
+      [
+        9,
+        3.5
+      ],
+      [
+        3,
+        3.5
+      ]
+    ],
+    [
+      [
+        -9,
+        -3.5
+      ],
+      [
+        -3,
+        -3.5
+      ],
+      [
+        -3,
+        -2.5
+      ],
+      [
+        -9,
+        -2.5
+      ]
+    ],
+    [
+      [
+        3,
+        -3.5
+      ],
+      [
+        9,
+        -3.5
+      ],
+      [
+        9,
+        -2.5
+      ],
+      [
+        3,
+        -2.5
+      ]
+    ]
+  ],
+  "waypoints": [
+    {
+      "id": "hub",
+      "name": "Hub",
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [
+        "center"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "recv_dock",
+      "name": "Receiving Dock",
+      "x": -10.5,
+      "y": 0.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "dock",
+      "layer": "ground",
+      "aliases": [
+        "receiving",
+        "inbound"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "ship_dock",
+      "name": "Shipping Dock",
+      "x": 10.5,
+      "y": 0.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "dock",
+      "layer": "ground",
+      "aliases": [
+        "shipping",
+        "outbound"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "west_aisle",
+      "name": "West Aisle",
+      "x": -6.0,
+      "y": 0.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "east_aisle",
+      "name": "East Aisle",
+      "x": 6.0,
+      "y": 0.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "pick_a",
+      "name": "Pick Station A",
+      "x": -6.0,
+      "y": 1.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "pickup",
+      "layer": "ground",
+      "aliases": [
+        "shelf a",
+        "rack a"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "pick_b",
+      "name": "Pick Station B",
+      "x": 6.0,
+      "y": 1.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "pickup",
+      "layer": "ground",
+      "aliases": [
+        "shelf b",
+        "rack b"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "drop_a",
+      "name": "Drop Station A",
+      "x": -6.0,
+      "y": -1.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "dropoff",
+      "layer": "ground",
+      "aliases": [
+        "rack c"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "drop_b",
+      "name": "Drop Station B",
+      "x": 6.0,
+      "y": -1.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "dropoff",
+      "layer": "ground",
+      "aliases": [
+        "rack d"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "north_west",
+      "name": "North West Corner",
+      "x": -10.5,
+      "y": 5.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "north_mid",
+      "name": "North Aisle",
+      "x": 0.0,
+      "y": 5.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "north_east",
+      "name": "North East Corner",
+      "x": 10.5,
+      "y": 5.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "south_mid",
+      "name": "South Aisle",
+      "x": 0.0,
+      "y": -5.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "south_east",
+      "name": "South East Corner",
+      "x": 10.5,
+      "y": -5.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "charger",
+      "name": "Charger 1",
+      "x": -10.5,
+      "y": -5.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "charger",
+      "layer": "ground",
+      "aliases": [
+        "charging",
+        "dock station"
+      ],
+      "metadata": {}
+    }
+  ],
+  "lanes": [
+    {
+      "id": "L_recv_dock_west_aisle",
+      "from_id": "recv_dock",
+      "to_id": "west_aisle",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_west_aisle_hub",
+      "from_id": "west_aisle",
+      "to_id": "hub",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_hub_east_aisle",
+      "from_id": "hub",
+      "to_id": "east_aisle",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_east_aisle_ship_dock",
+      "from_id": "east_aisle",
+      "to_id": "ship_dock",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_west_aisle_pick_a",
+      "from_id": "west_aisle",
+      "to_id": "pick_a",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_west_aisle_drop_a",
+      "from_id": "west_aisle",
+      "to_id": "drop_a",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_east_aisle_pick_b",
+      "from_id": "east_aisle",
+      "to_id": "pick_b",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_east_aisle_drop_b",
+      "from_id": "east_aisle",
+      "to_id": "drop_b",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_hub_north_mid",
+      "from_id": "hub",
+      "to_id": "north_mid",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_hub_south_mid",
+      "from_id": "hub",
+      "to_id": "south_mid",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_recv_dock_north_west",
+      "from_id": "recv_dock",
+      "to_id": "north_west",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_north_west_north_mid",
+      "from_id": "north_west",
+      "to_id": "north_mid",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_north_mid_north_east",
+      "from_id": "north_mid",
+      "to_id": "north_east",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_north_east_ship_dock",
+      "from_id": "north_east",
+      "to_id": "ship_dock",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_ship_dock_south_east",
+      "from_id": "ship_dock",
+      "to_id": "south_east",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_south_east_south_mid",
+      "from_id": "south_east",
+      "to_id": "south_mid",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_south_mid_charger",
+      "from_id": "south_mid",
+      "to_id": "charger",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_charger_recv_dock",
+      "from_id": "charger",
+      "to_id": "recv_dock",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    }
+  ],
+  "zones": [
+    {
+      "id": "hub_slow",
+      "name": "Hub (slow)",
+      "type": "slow",
+      "polygon": [
+        [
+          -1.5,
+          -1.5
+        ],
+        [
+          1.5,
+          -1.5
+        ],
+        [
+          1.5,
+          1.5
+        ],
+        [
+          -1.5,
+          1.5
+        ]
+      ],
+      "speed_limit": 0.3,
+      "allowed_fleets": [],
+      "layer": null,
+      "metadata": {}
+    }
+  ],
+  "metadata": {
+    "source": "config/maps/gazebo_warehouse.json",
+    "units": "m",
+    "gazebo_world": "simulation/gazebo/worlds/nayantra_warehouse.sdf"
+  }
+}
