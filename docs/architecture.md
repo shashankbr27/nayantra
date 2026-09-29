@@ -1,139 +1,184 @@
 # Architecture Deep-Dive
 
+> For the multi-fleet platform design, see
+> [platform_architecture.md](platform_architecture.md). It covers the
+> decisions, the traffic algorithm, the migration plan and backward
+> compatibility. This page is the component-level reference.
+
 ## Overview
 
-Nayantra is a **layered architecture** that decouples intent (natural language)
-from execution (robot hardware) through well-defined interfaces at every layer.
+Nayantra separates **intent** (natural language, operator clicks) from
+**execution** (robots). The **Nayantra Core** sits between the two. It owns
+the world model and makes every allocation, routing, traffic and safety
+decision. Neither the LLM nor the UI talks to robots directly.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         INTENT LAYER                                 │
-│  User / Web API  ──→  AI Agent  ──→  Multi-step Planner              │
-│                       (LLM tool-use)   (dependency graph)            │
+│  Operator UI (web/, served at :8000/)     NL: CLI · UI command bar   │
+│  REST /api/v1 + WebSocket /api/v1/ws      AI Agent (:8080)           │
+│                                           think → act → observe loop │
+└───────────────┬───────────────────────────────────┬──────────────────┘
+                │                                   │  tool calls
+                │                    ┌──────────────▼──────────────────┐
+                │                    │ MCP server (:7000)              │
+                │                    │ Pydantic-validated, risk-tagged │
+                │                    │ high-level tools (REST /run)    │
+                │                    └──────────────┬──────────────────┘
+                │                                   │  REST /api/v1
+┌───────────────▼───────────────────────────────────▼──────────────────┐
+│                   NAYANTRA CORE (:8000) — control plane              │
+│  World registry · Task manager + allocation · Traffic coordinator    │
+│  Fleet manager (executors) · Safety guard · Confirmations            │
+│  Event bus + alerts · SQLite document store                          │
 └────────────────────────────┬─────────────────────────────────────────┘
-                             │  Structured tool calls
+                             │  RobotAdapter interface
 ┌────────────────────────────▼─────────────────────────────────────────┐
-│                       PROTOCOL LAYER                                 │
-│              MCP Server (FastAPI + SSE + JWT auth)                   │
-│              Declarative tool registry (25+ tools)                   │
+│                       ADAPTER LAYER                                  │
+│  SimAdapter (built-in)  │  Nav2Adapter (rclpy)  │  IsaacDemoAdapter  │
+│                         │  LAN: DDS / WAN: Zenoh│  (HTTP)            │
 └────────────────────────────┬─────────────────────────────────────────┘
-                             │  HTTP REST
-┌────────────────────────────▼─────────────────────────────────────────┐
-│                     FLEET MANAGEMENT LAYER                           │
-│              Open-RMF REST API (rmf-web)                             │
-│              Fleet adapter / traffic negotiation                     │
-└────────────────────────────┬─────────────────────────────────────────┘
-                             │  RMF Fleet Adapter protocol
-┌────────────────────────────▼─────────────────────────────────────────┐
-│                      TRANSPORT LAYER                                 │
-│   LAN: ROS 2 DDS (direct)   │   WAN: Zenoh bridge ↔ Zenoh network   │
-└────────────────────────────┬─────────────────────────────────────────┘
-                             │  ROS 2 topics / services
+                             │
 ┌────────────────────────────▼─────────────────────────────────────────┐
 │                       ROBOT LAYER                                    │
-│   Robot Adapter ──→ Nav2 (navigation) ──→ Hardware / Isaac Sim       │
+│   Kinematic simulator │ Nav2 → hardware / Isaac Sim │ Isaac demo     │
 └──────────────────────────────────────────────────────────────────────┘
 ```
+
+Open-RMF is **optional infrastructure**. With `OPENRMF_INFRA_TOOLS=true`
+the MCP server also exposes door, lift and dispenser tools through
+`nayantra/rmf_client`. The core's traffic coordination is inspired by
+Open-RMF, but it is Nayantra's own implementation, not `rmf_traffic`.
 
 ---
 
 ## Component Details
 
-### 1. AI Agent (`nayantra/agent/`)
+### 1. Nayantra Core (`nayantra/core/`)
 
-**agent.py — Core reasoning loop**
+| Module | Responsibility |
+|---|---|
+| `models.py` | Pydantic schemas for every entity and request (`extra="forbid"`), plus the event types |
+| `store.py` | SQLite document store (WAL) for documents, events and meta |
+| `world.py` | `WorldRegistry` for maps, waypoints, lanes, zones, fleets and robots. Full CRUD with integrity checks (bounds, unique names, references, spawn not in a forbidden zone) and fuzzy name resolution ("Did you mean …") |
+| `routing.py` | `MapGraph`: lane rules per robot profile, speeds, conflict sets for close or crossing lanes, A*, and explanations for unreachable goals |
+| `traffic.py` | `TrafficCoordinator`: prioritized space-time planning (SIPP) over a reservation table, execution ordering per resource, conflict classification, negotiation (delay, reroute, priority, make-way, joint re-planning), deadlock detection and stale-wait re-planning |
+| `tasks.py` | `TaskManager`: an explicit transition table (`queued → assigned → planning → executing ⇄ waiting_for_traffic → completed / failed / cancelled`, plus `waiting_for_robot` and `paused`), place resolution (waypoint or zone), step building and allocation retry |
+| `allocation.py` | Filters robots by capability, map, layer, payload, reachability and battery, then scores them by cost and queue. Returns an `Allocation` that explains the choice and every rejection |
+| `fleet.py` | `FleetManager`: a per-robot executor with pause/cancel/e-stop checkpoints, charging and auto-charge, a zone monitor, make-way moves and operator commands |
+| `safety.py` | `SafetyGuard`: forbidden zones, restricted targets and speed caps |
+| `confirmations.py` | Parks dangerous actions until an operator confirms them (TTL 180 s). Requests from the MCP client can never confirm |
+| `events.py` | `EventBus`: persisted events, raising and resolving alerts, and WebSocket fan-out with resync on lag |
+| `adapters/` | `RobotAdapter` interface: `connect`, `snapshot`, `follow_path`, `stop`, `pause`, `resume`, `emergency_stop`, `release_estop` |
+| `api.py`, `ws.py` | `/api/v1` REST (robots, fleets, maps, waypoints, lanes, zones, tasks, traffic, events, alerts, confirmations, sim, agent relay) and the `/api/v1/ws` live world model |
+| `legacy_rmf.py` | The old rmf-web-shaped routes, backed by the core. They exist only for compatibility |
+| `server.py` | `nayantra-core`: the app factory; it also serves `web/dist` |
+
+**Design rules**
+
+- The LLM never allocates robots or sends velocities. It creates tasks and
+  commands, and the core decides.
+- Every state change is an explicit transition that emits an event.
+- Every wait or failure carries a human-readable reason. Examples: "waiting
+  for ugv_02 to clear the narrow corridor", "no robot with payload ≥ 20 kg
+  can reach Storage Rack C".
+
+### 2. AI Agent (`nayantra/agent/`)
+
+**agent.py: a provider-agnostic tool-use loop**
 
 ```
 Command
   │
   ▼
-_get_tools()           ← cache 60s, fallback to tools.json
-  │  tool schemas
-  ▼
-_plan_with_anthropic() or _plan_with_openai()
-  │  AgentPlan (list of ToolCall steps)
-  ▼
-TaskPlanner.validate() ← cycle detection, index bounds check
+_get_tools()          ← MCP GET /tools (cached 60 s; config/tools.json fallback)
   │
   ▼
-execute_plan()
-  ├── For each step group (parallel group from topo-sort):
-  │     execute_group_parallel() ← asyncio.gather
-  │         _execute_step()
-  │             _resolve_params()  ← {{placeholder}} substitution
-  │             POST /run to MCP
-  │             _extract_ids()     ← task_id, robot_id propagation
+provider.start(command, tools)
+loop (≤ 12 iterations):
+    turn = provider.next_turn()        ← LLM picks tool calls or answers
+    for call in turn.calls:
+        POST MCP /run  {tool, params, context: {mission_id, command}}
+    provider.add_results(...)          ← tool results, errors included
   │
   ▼
-_summarise()           ← LLM natural language summary
-  │
-  ▼
-MissionResult
+MissionResult (summary + every step)
 ```
 
-**Key design decision: why two LLM providers?**
+Providers are Anthropic, OpenAI and Gemini (`LLM_PROVIDER`). Each one
+converts the same tool schemas into its own format. Tool errors, such as an
+unknown waypoint with "Did you mean" suggestions or a missing confirmation,
+go back to the model, so it can correct itself or explain the problem.
 
-Different operators have different compliance/cost requirements. Claude is
-superior for complex multi-step reasoning; GPT-4o has a larger context window.
-`LLM_PROVIDER` in `.env` switches between them at startup with no code change.
-
-**Streaming vs blocking**
-
-`agent.run()` blocks until the full mission completes — good for CLI and simple
-integrations. `agent.stream_run()` yields SSE events after each step — essential
-for live UI feedback with long multi-robot missions.
+`agent.run()` blocks until the mission is done. `agent.stream_run()` yields
+`status`, `step_start`, `step_done` and `done` events. The operator UI
+command bar uses the streaming form through the core's
+`POST /api/v1/agent/command` relay.
 
 ---
 
-### 2. MCP Server (`nayantra/mcp/`)
+### 3. MCP Server (`nayantra/mcp/`)
 
-**Why MCP?**
-
-The [Model Context Protocol](https://modelcontextprotocol.io) is a standardised
-interface between LLMs and tools. Using MCP means any MCP-compatible LLM or
-client can drive our robot fleet — not just our agent.
+It is a REST transport built around MCP tool semantics: `GET /tools`,
+`POST /run` and `GET /sse`. It is not the MCP JSON-RPC wire protocol.
 
 **Tool registry pattern**
 
 ```python
-@_tool({
-    "name": "move_robot",
-    "description": "...",
-    "parameters": { ... },
-})
-async def _move_robot(client: OpenRMFClient, params: dict) -> Any:
-    ...
+class RobotParams(Params):          # Pydantic, extra="forbid"
+    robot: str = Field(..., description="Robot id or name")
+
+@_tool("stop_robot", "Stop one robot now and cancel its current task.",
+       RobotParams, risk="act", endpoint="POST /robots/{id}/stop")
+async def _stop_robot(ctx: ToolContext, p: RobotParams) -> Any:
+    return await ctx.core.post(f"/robots/{p.robot}/stop", {...}, trace=ctx.trace)
 ```
 
-The `@_tool` decorator registers both the JSON schema (sent to the LLM) and the
-async handler (called at runtime) in a single block. The dispatcher in
-`execute_tool()` is a simple dict lookup — O(1), no if/elif chains.
-
-**SSE fan-out**
-
-Every `POST /run` call publishes the result to a list of asyncio Queues. Each
-`GET /sse` subscriber holds one Queue. This allows multiple UI clients to watch
-the same operation without any message broker.
-
----
-
-### 3. OpenRMF Client (`nayantra/rmf_client/`)
-
-**Debug mode**
-
-When `DEBUG_MODE=true`, every method returns a realistic simulated response
-without any network I/O. This makes the entire stack testable on a laptop with
-no robots, no GPU, and no RMF server — just `pytest`.
-
-**Retry policy**
-
-Transport errors (network blips) are retried 3× with exponential back-off
-(1s, 2s, 4s) via tenacity. HTTP 4xx/5xx errors are **not** retried because
-they represent application-level errors that won't self-heal.
+- Parameters are validated before the handler runs. `/run` answers 422 for
+  bad parameters and 404 for an unknown tool.
+- Every tool has a risk level: `read`, `act` or `dangerous`. Dangerous tools
+  (stop all, e-stop all, remove robot …) come back as *pending
+  confirmation*. The core refuses to let the MCP client confirm
+  (`X-Nayantra-Client: mcp`).
+- Trace headers (`X-Nayantra-Mission`, `X-Nayantra-Command`,
+  `X-Nayantra-Tool`) are stored on tasks. This lets the UI show which NL
+  command created which task.
+- Legacy tool names (`move_robot`, `dispatch_task` …) still run but are
+  hidden from `/tools`.
 
 ---
 
-### 4. Isaac Sim Bridge (`nayantra/isaac_sim/`)
+### 4. Operator UI (`web/`)
+
+React + TypeScript + Vite, with zustand stores. The world store is filled
+by the `/api/v1/ws` snapshot and then kept current by incremental events.
+
+- **Operations:**
+  - Live SVG map with pan, zoom, layers, selection and interpolated
+    robot poses.
+  - Fleet sidebar with simulation controls.
+  - Inspector: a robot command center, plus waypoint and multi-select panels.
+  - Bottom dock: events, alerts, tasks, traffic and system.
+  - NL command bar.
+- **Fleets / Robots & Tasks:** overviews, the task composer, and the task
+  drawer (allocation trace, "why waiting").
+- **Robot registration:** a 7-step wizard ending in a live connection test.
+- **Map editor:** waypoints, lanes and zones; background image upload
+  (PNG/PGM + YAML); rmf nav-graph export.
+
+---
+
+### 5. Optional Open-RMF client (`nayantra/rmf_client/`)
+
+Used only with `OPENRMF_INFRA_TOOLS=true`, for doors, lifts, dispensers
+and ingestors on a real Open-RMF server. Transport errors are retried 3×
+with exponential back-off. HTTP 4xx/5xx errors are not retried. In
+`DEBUG_MODE` it returns empty infrastructure lists rather than invented
+devices.
+
+---
+
+### 6. Isaac Sim Bridge (`nayantra/isaac_sim/`)
 
 **Integration points**
 
@@ -157,7 +202,7 @@ without an NVIDIA GPU.
 
 ---
 
-### 5. Zenoh Bridge (`nayantra/zenoh_bridge/`)
+### 7. Zenoh Bridge (`nayantra/zenoh_bridge/`)
 
 **When to use Zenoh vs direct DDS**
 
@@ -175,40 +220,43 @@ to add new topics — just extend the list.
 
 ---
 
-## Data Flow: "Send robot R1 to charging dock"
+## Data Flow: "Send a ground robot to Charger 1"
 
 ```
-1. User types command
+1. The operator types the command in the UI command bar
+   → POST /api/v1/agent/command (core) → relayed to the agent API /stream
    │
-2. agent.run("Send robot R1 to charging dock")
+2. The agent loop: the LLM receives the system prompt, the MCP tool list
+   and the command
+   → calls create_task {task_type: "navigate", destination: "Charger 1",
+                        fleet_id: "warehouse_ugv"}
    │
-3. LLM (Claude/GPT) receives:
-   - system prompt with tool descriptions
-   - user command
-   → Produces tool calls: [list_robots, move_robot]
+3. MCP /run validates the params (Pydantic)
+   → POST core /api/v1/tasks with the trace headers
    │
-4. AgentPlan validated by TaskPlanner
+4. Core TaskManager
+   → resolves "Charger 1" to waypoint CH1
+   → task QUEUED
+   → allocate(): picks a robot and explains the choice, e.g. "ugv_02:
+     idle, reachable in 14 s, 86 % battery; ugv_01 busy with a delivery"
+   → ASSIGNED
    │
-5. Step 0: POST /run  { tool: "list_robots" }
-   → MCP → OpenRMF GET /fleets
-   → Returns fleet + robot list
-   → context["fleet_name"] = "turtlebot_fleet"
+5. FleetManager executor
+   → TrafficCoordinator.request_route(): a space-time plan against current
+     reservations
+   → PLANNING → EXECUTING
+   → the robot waits for traffic at the corridor (WAITING_FOR_TRAFFIC,
+     with the reason) → EXECUTING
+   → SimAdapter / Nav2Adapter follow_path
    │
-6. Step 1: POST /run  { tool: "move_robot",
-                        fleet_name: "turtlebot_fleet" (enriched),
-                        robot_name: "R1",
-                        waypoint: "charging_dock" }
-   → MCP → OpenRMF POST /tasks/dispatch_task
-   → Returns task_id: "task-abc-123"
-   → context["task_id"] = "task-abc-123"
+6. Every transition emits an event
+   → WebSocket → the UI shows the robot moving, the task timeline and any
+     conflict banner
    │
-7. (If real hardware) OpenRMF → Fleet Adapter → Nav2 → Robot moves
-   (If Isaac Sim)     OpenRMF → Fleet Adapter → Isaac Sim Bridge → Nav2 sim
+7. The tool result returns to the LLM, which may call get_task_status
+   → summary: "ugv_02 is on its way to Charger 1 (task …)"
    │
-8. LLM summarises: "Robot R1 has been successfully dispatched to the
-   charging dock. Task ID: task-abc-123."
-   │
-9. Result returned to user / streamed via SSE
+8. COMPLETED: the reservation is released and the robot parks on CH1
 ```
 
 ---
@@ -217,43 +265,53 @@ to add new topics — just extend the list.
 
 | Layer | Mechanism |
 |---|---|
-| Agent API | (Optional) API key or OAuth — add via FastAPI dependency |
-| MCP Server | HS256 JWT (`USE_AUTH=true`) — validated on every request |
-| OpenRMF API | Bearer JWT in `Authorization` header |
+| Core API / UI | Binds to `127.0.0.1` by default (`CORE_HOST`). Dangerous operations need operator confirmation. The MCP client can never confirm |
+| Agent API | Binds to `127.0.0.1` by default. Add API-key or OAuth auth via a FastAPI dependency |
+| MCP Server | HS256 JWT (`USE_AUTH=true`), validated on every request |
+| Safety | Forbidden zones, speed caps and e-stop are enforced in the core and adapters, independent of the LLM |
+| Open-RMF API (optional) | Bearer JWT in the `Authorization` header |
 | Zenoh | TLS mutual auth (production deployment) |
 | Isaac Sim | Local-only REST API (bind to loopback in production) |
 
-The JWT secret is configured via `JWT_SECRET` in `.env` and must match the
-secret configured on the RMF server side. Rotate tokens with
+The JWT secret is configured via `JWT_SECRET` in `.env`. Rotate tokens with
 `python scripts/generate_token.py`.
 
 ---
 
 ## Extending the System
 
-### Add a new RMF tool
+### Add a robot type or protocol
 
-1. Add handler in `nayantra/mcp/tools.py`:
-```python
-@_tool({
-    "name": "my_tool",
-    "description": "Does X.",
-    "parameters": { "param": { "type": "string" } },
-})
-async def _my_tool(client, params):
-    return await client.my_method(params["param"])
-```
+1. Implement `RobotAdapter` in `nayantra/core/adapters/<name>.py`. Look at
+   `sim.py` for the full interface and `isaac_demo.py` for a minimal HTTP
+   adapter.
+2. Map the protocol to it in `create_adapter()` in
+   `nayantra/core/adapters/__init__.py`. Add the protocol to `Protocol` in
+   `models.py` if it is new. `mqtt`, `rest`, `websocket` and `custom`
+   already exist and use `UnsupportedAdapter` today.
+3. The registration wizard picks it up from `/api/v1/meta`.
 
-2. Add method + debug stub in `nayantra/rmf_client/client.py`
-3. Add test in `tests/test_mcp_server.py`
+### Add an MCP tool
 
-### Add a new LLM provider
+1. Add a `Params` model and an `@_tool(...)` handler to
+   `nayantra/mcp/tools.py`. Give it a risk level, and have it call the core
+   API through `ctx.core`.
+2. Regenerate `config/tools.json` if you rely on the offline fallback.
+3. Add a test in `tests/test_mcp_server.py`.
 
-1. Add an `elif` branch in `RMFAgent._setup_llm_client()`
-2. Add corresponding `_plan_with_<provider>()` method
-3. Add to `LLM_PROVIDER` literal in `nayantra/config.py`
+Tools should express intent (create or cancel a task, stop a robot). They
+should not micro-manage motion.
+
+### Add an LLM provider
+
+1. Subclass `_Provider` in `nayantra/agent/agent.py`. Implement `start`,
+   `next_turn`, `add_results` and `summarise`, and write a schema
+   converter.
+2. Register it in `_PROVIDERS` and in the `LLM_PROVIDER` literal in
+   `nayantra/config.py`.
+3. Test it with a scripted provider (see `tests/test_agent_loop.py`).
 
 ### Add a new transport (e.g. MQTT)
 
-Create `nayantra/mqtt_bridge/bridge.py` following the same pattern as the Zenoh
-bridge. The MCP server and agent layers are transport-agnostic.
+Create `nayantra/mqtt_bridge/bridge.py` following the same pattern as the
+Zenoh bridge. The core, MCP and agent layers are transport-agnostic.

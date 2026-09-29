@@ -5,7 +5,10 @@ quick-start guide live at the repository root: [../README.md](../README.md).
 
 | File | Contents |
 |---|---|
-| [architecture.md](architecture.md) | Layered architecture, component details, data flow, security model, extension guide |
-| [getting_started.md](getting_started.md) | End-to-end setup: laptop → stub stack → Isaac Sim → real robot |
+| [platform_architecture.md](platform_architecture.md) | Multi-fleet platform design: analysis, decisions, traffic coordination, migration plan |
+| [architecture.md](architecture.md) | Component reference, data flow, security model, extension guide |
+| [getting_started.md](getting_started.md) | End-to-end setup: laptop (built-in simulator) → Isaac Sim → real robot |
 | [isaac_sim_setup.md](isaac_sim_setup.md) | NVIDIA Isaac Sim 4.x integration |
 | [zenoh_setup.md](zenoh_setup.md) | LAN vs WAN transport, multi-site deployments |
+| [nav2_stack_plan.md](nav2_stack_plan.md) | Nav2 stack design and milestones for carter_v1 |
+| [rviz_setup.md](rviz_setup.md) | RViz 2 visualization for ROS 2 robots |

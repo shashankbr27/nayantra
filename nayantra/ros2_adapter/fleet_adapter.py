@@ -1,35 +1,19 @@
 """
 nayantra/ros2_adapter/fleet_adapter.py
 
-Open-RMF Fleet Adapter for Nayantra.
+Legacy single-robot Nav2 adapter (kept for the CLI below and old imports).
 
-This module bridges the Open-RMF fleet adapter protocol to Nav2.
-It runs as a ROS 2 node and:
+Despite the historical name it does not use Open-RMF's rmf_fleet_adapter. It
+sends Nav2 NavigateToPose goals, follows /odom, and optionally publishes
+rmf_fleet_msgs/RobotState if that package is installed. Without ROS 2 it
+interpolates the pose (kinematic stub).
 
-  1. Subscribes to RMF task dispatch events (via rmf_fleet_adapter Python API)
-  2. Translates them into Nav2 NavigateToPose goals
-  3. Publishes robot state (pose, battery, mode) back to RMF traffic
+The multi-robot, traffic-coordinated path is nayantra/core/adapters/nav2.py,
+which shares one rclpy node across robots. This class calls rclpy.init() per
+instance, so it supports one robot per process.
 
-Architecture position:
-  OpenRMF Server → [THIS MODULE] → Nav2 → Robot
-
-ROS 2 topics published:
-  /rmf_fleet/robot_state   (rmf_fleet_msgs/RobotState)
-
-ROS 2 topics subscribed:
-  /odom                    (nav_msgs/Odometry)
-
-ROS 2 action clients:
-  /navigate_to_pose        (nav2_msgs/NavigateToPose)
-  /follow_waypoints        (nav2_msgs/FollowWaypoints)
-
-Usage (requires ROS 2 Humble + rmf_fleet_adapter installed):
-  python -m nayantra.ros2_adapter.fleet_adapter --fleet turtlebot_fleet
-
-For simulation without ROS 2, set ROS2_ENABLED=false and this module
-publishes simulated state updates only.
-
-Ref: https://github.com/open-rmf/rmf_ros2/tree/main/rmf_fleet_adapter
+Usage:
+  python -m nayantra.ros2_adapter.fleet_adapter --fleet warehouse_fleet --robot carter1 [--ros2]
 """
 
 from __future__ import annotations
@@ -42,6 +26,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import IntEnum
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("nayantra.fleet_adapter")
@@ -520,19 +505,27 @@ class RMFFleetAdapter:
 
 
 # ---------------------------------------------------------------------------
-# Default warehouse waypoint map
+# Warehouse waypoints — a read-only view of config/maps/isaac_warehouse.json.
+# The authoritative, editable map lives in the Nayantra Core registry; this
+# table only exists for the legacy single-robot CLI below and old imports.
 # ---------------------------------------------------------------------------
 
-WAREHOUSE_WAYPOINTS: dict[str, tuple] = {
-    "charging_dock": (-5.0, -2.0, 0.0),
-    "zone_a": (-3.0, 2.0, 0.0),
-    "zone_b": (3.0, 2.0, math.pi),
-    "zone_c": (0.0, -2.0, 0.0),
-    "pick_station_1": (-5.0, 2.0, 0.0),
-    "drop_station_1": (5.0, -2.0, math.pi),
-    "elevator_lobby": (0.0, 0.0, 0.0),
-    "entrance": (-6.0, 0.0, 0.0),
-}
+
+def load_map_waypoints(path: Path | None = None) -> dict[str, tuple]:
+    """{waypoint id and aliases (lower-case): (x, y, yaw)} from a map seed file."""
+    import json
+
+    path = path or Path(__file__).resolve().parents[2] / "config" / "maps" / "isaac_warehouse.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    table: dict[str, tuple] = {}
+    for w in data.get("waypoints", []):
+        coords = (float(w["x"]), float(w["y"]), float(w.get("yaw", 0.0)))
+        for key in [w["id"], *w.get("aliases", [])]:
+            table[key.lower()] = coords
+    return table
+
+
+WAREHOUSE_WAYPOINTS: dict[str, tuple] = load_map_waypoints()
 
 
 # ---------------------------------------------------------------------------

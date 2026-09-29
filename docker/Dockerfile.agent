@@ -5,7 +5,7 @@ WORKDIR /app
 COPY pyproject.toml .
 RUN pip install --no-cache-dir \
     fastapi uvicorn[standard] pydantic pydantic-settings \
-    httpx anthropic openai PyJWT tenacity python-dotenv rich \
+    httpx anthropic openai google-genai PyJWT tenacity python-dotenv rich \
     prometheus-client
 
 COPY nayantra/ ./nayantra/
@@ -15,4 +15,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
 
-CMD ["python", "-m", "uvicorn", "nayantra.agent.api:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "uvicorn", "nayantra.agent.api_v2:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -31,6 +31,7 @@ import os
 import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 # -----------------------------------------------------------------------------
 # 1. SimulationApp with WebRTC livestream (needs an RTX GPU with a hardware video
@@ -144,20 +145,19 @@ ROBOT_USD = _first_resolvable(
 )
 ROBOT_PRIM = "/World/carter"
 
-# Named places in the warehouse (x, y in metres). Edit/extend freely — the NL
-# driver maps spoken names to these.
-WAYPOINTS: dict[str, tuple[float, float]] = {
-    "main_gate": (-6.0, 0.0),
-    "loading_dock": (6.0, -2.0),
-    "board_room": (3.0, 2.0),
-    "meeting_room": (5.0, 2.0),
-    "canteen": (-3.0, 2.0),
-    "store_room": (5.0, -2.0),
-    "charging_dock": (-5.0, -2.0),
-    "zone_a": (-3.0, 0.0),
-    "zone_b": (3.0, 0.0),
-    "center": (0.0, 0.0),
-}
+# Named places come from the single Nayantra map (config/maps/isaac_warehouse.json;
+# edit them in the Nayantra map editor, not here). Aliases such as "canteen"
+# or "main_gate" map to the same spot. MAP_FILE overrides the path.
+_MAP_FILE = Path(
+    os.getenv("MAP_FILE", "")
+    or Path(__file__).resolve().parents[1] / "config" / "maps" / "isaac_warehouse.json"
+)
+WAYPOINTS: dict[str, tuple[float, float]] = {}
+with _MAP_FILE.open(encoding="utf-8") as _fh:
+    for _w in json.load(_fh)["waypoints"]:
+        for _key in [_w["id"], *_w.get("aliases", [])]:
+            WAYPOINTS[_key.lower()] = (float(_w["x"]), float(_w["y"]))
+say(f"{len(WAYPOINTS)} waypoint names from {_MAP_FILE}")
 
 world = World(stage_units_in_meters=1.0)
 _stage = omni.usd.get_context().get_stage()
@@ -243,7 +243,7 @@ class _Handler(BaseHTTPRequestHandler):
             _send(self, 404, b"not found", "text/plain")
             return
         if "waypoint" in q:
-            name = q["waypoint"][0]
+            name = q["waypoint"][0].strip().lower()
             if name not in WAYPOINTS:
                 _send(self, 404, f"unknown waypoint: {name}".encode(), "text/plain")
                 return

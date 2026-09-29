@@ -21,7 +21,10 @@ Env:
     GEMINI_API_KEY   enable NL mapping (pip install --user google-genai). Without
                      it, exact waypoint names and raw "x y" still work.
     GEMINI_MODEL     default gemini-2.5-flash
-    WAYPOINTS_FILE   optional JSON {"name":[x,y,yaw], ...} overriding the built-ins
+    NAYANTRA_CORE_URL  read waypoints from the running core (default http://127.0.0.1:8000);
+                       falls back to config/maps/isaac_warehouse.json
+    NAYANTRA_MAP       map id (default isaac_warehouse)
+    WAYPOINTS_FILE     legacy JSON {"name":[x,y,yaw], ...} overriding both
     GOAL_FRAME       default 'map'
 """
 
@@ -33,29 +36,41 @@ import os
 import sys
 from pathlib import Path
 
-# Built-in warehouse waypoints (x, y, yaw) in metres, map frame. Carter spawns at
-# (0,0). Tune these to the real warehouse layout once basic motion is confirmed.
-WAYPOINTS: dict[str, tuple[float, float, float]] = {
-    "center": (0.0, 0.0, 0.0),
-    "zone_a": (3.0, 0.0, 0.0),
-    "zone_b": (-3.0, 0.0, math.pi),
-    "loading_dock": (5.0, -2.0, 0.0),
-    "shelf_1": (4.0, 3.0, 0.0),
-    "shelf_2": (-4.0, 3.0, 0.0),
-    "charging_dock": (-5.0, -2.0, math.pi),
-    "entrance": (-6.0, 0.0, 0.0),
-}
+REPO = Path(__file__).resolve().parents[1]
+MAP_FILE = REPO / "config" / "maps" / "isaac_warehouse.json"
+
+
+def _table(waypoints: list[dict]) -> dict[str, tuple]:
+    out: dict[str, tuple] = {}
+    for w in waypoints:
+        coords = (float(w["x"]), float(w["y"]), float(w.get("yaw", 0.0)))
+        for key in [w["id"], *w.get("aliases", [])]:
+            out[key.lower()] = coords
+    return out
 
 
 def load_waypoints() -> dict[str, tuple]:
+    """One source of truth: the Nayantra Core map (live), else its seed file.
+
+    WAYPOINTS_FILE (legacy {"name": [x, y, yaw]}) still overrides both.
+    """
     path = os.getenv("WAYPOINTS_FILE", "")
     if path and Path(path).is_file():
         try:
             raw = json.loads(Path(path).read_text(encoding="utf-8"))
             return {k.lower(): tuple(v) for k, v in raw.items()}
         except Exception as exc:  # noqa: BLE001
-            print(f"(bad WAYPOINTS_FILE: {exc}; using built-ins)")
-    return dict(WAYPOINTS)
+            print(f"(bad WAYPOINTS_FILE: {exc}; using the Nayantra map)")
+    core = os.getenv("NAYANTRA_CORE_URL", "http://127.0.0.1:8000").rstrip("/")
+    map_id = os.getenv("NAYANTRA_MAP", "isaac_warehouse")
+    try:
+        import urllib.request
+
+        with urllib.request.urlopen(f"{core}/api/v1/maps/{map_id}/waypoints", timeout=2) as r:
+            return _table(json.loads(r.read()))
+    except Exception:  # noqa: BLE001 — core not running: use the seed file
+        pass
+    return _table(json.loads(MAP_FILE.read_text(encoding="utf-8"))["waypoints"])
 
 
 def plan(command: str, wps: dict) -> list:

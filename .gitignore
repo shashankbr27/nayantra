@@ -102,3 +102,8 @@ docker-compose.override.yml
 build_isolated/
 install_isolated/
 log/
+
+# Web UI (npm)
+node_modules/
+web/dist/
+*.tsbuildinfo

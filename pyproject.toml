@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "nayantra"
-version         = "1.0.0"
-description     = "Nayantra — LLM-powered autonomous robot navigation via Open-RMF and MCP"
+version         = "2.0.0"
+description     = "Nayantra — multi-fleet robot orchestration: control plane, traffic coordination, operator UI, and LLM/MCP operator interface"
 readme          = "README.md"
 license         = { file = "LICENSE" }
 requires-python = ">=3.11"
@@ -55,7 +55,8 @@ dev = [
 
 [project.scripts]
 nayantra              = "nayantra.agent.main:main"
-nayantra-api          = "nayantra.agent.api:main"
+nayantra-api          = "nayantra.agent.api_v2:main"
+nayantra-core         = "nayantra.core.server:main"
 nayantra-mcp-server   = "nayantra.mcp.server:main"
 nayantra-zenoh-bridge = "nayantra.zenoh_bridge.bridge:main"
 nayantra-token        = "scripts.generate_token:main"

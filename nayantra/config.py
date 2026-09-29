@@ -77,13 +77,30 @@ class Settings(BaseSettings):
     ZENOH_ROUTER_URL: str = "tcp/localhost:7447"
     ZENOH_MODE: str = "peer"
 
-    # RMF bridge (RMF-compatible control plane backed by Nav2, replaces the stub)
+    # Nayantra Core — the multi-fleet control plane (REST /api/v1, WebSocket,
+    # web UI, legacy rmf-web-shaped routes). Replaces rmf_bridge + the stub.
+    CORE_HOST: str = "127.0.0.1"
+    CORE_PORT: int = 8000
+    NAYANTRA_CORE_URL: str = "http://localhost:8000"  # how MCP / scripts reach the core
+    NAYANTRA_DB_PATH: str = str(_ROOT / "data" / "nayantra.db")
+    # Scenario seeded into an EMPTY database on first start (config/scenarios/<name>.json).
+    # Empty string = start with nothing registered.
+    NAYANTRA_SCENARIO: str = "warehouse_demo"
+    AGENT_API_URL: str = "http://localhost:8080"  # the core proxies NL commands here
+    WEB_DIST_DIR: str = str(_ROOT / "web" / "dist")
+    # Register the Open-RMF infrastructure MCP tools (doors, lifts, dispensers,
+    # fire alarm). Only meaningful against a real rmf-web api-server.
+    OPENRMF_INFRA_TOOLS: bool = False
+
+    # Legacy RMF bridge launcher (python -m nayantra.rmf_bridge.server) — now
+    # starts the core with a single Nav2 robot described by these settings.
     ROS2_ENABLED: bool = False
     RMF_BRIDGE_HOST: str = "127.0.0.1"
     RMF_BRIDGE_PORT: int = 8000
     FLEET_NAME: str = "warehouse_fleet"
     ROBOT_NAME: str = "carter1"
-    # Optional JSON file: {"waypoint_name": [x, y, yaw], ...} — overrides built-ins
+    # Deprecated: waypoints now live in the core's map registry
+    # (config/maps/*.json seeds, editable via the UI / API).
     WAYPOINTS_FILE: str = str(_ROOT / "config" / "waypoints.json")
 
     # Misc

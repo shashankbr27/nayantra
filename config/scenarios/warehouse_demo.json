@@ -1,0 +1,649 @@
+{
+  "name": "Warehouse A \u2014 multi-fleet demo",
+  "description": "4 UGVs, 4 UAVs, 4 quadrupeds and 4 humanoids on the built-in kinematic simulator. Deliveries from receiving to storage exercise allocation and traffic coordination (intersections, the narrow corridor, the restricted HV area).",
+  "maps": [
+    "../maps/warehouse_demo.json",
+    "../maps/isaac_warehouse.json"
+  ],
+  "fleets": [
+    {
+      "id": "warehouse_ugv",
+      "name": "Warehouse UGV Fleet",
+      "robot_type": "ugv",
+      "description": "Differential-drive tuggers moving goods from receiving to storage.",
+      "color": "#22d3ee",
+      "capabilities": [
+        "navigate",
+        "carry_payload",
+        "pick",
+        "drop",
+        "dock",
+        "charge",
+        "patrol"
+      ],
+      "navigation": {
+        "stack": "kinematic_sim",
+        "planner": "nayantra_graph_astar",
+        "controller": "kinematic",
+        "localization": "ground_truth"
+      },
+      "footprint": {
+        "shape": "circle",
+        "radius": 0.45
+      },
+      "limits": {
+        "max_speed": 1.2,
+        "max_accel": 0.6,
+        "max_decel": 1.2,
+        "max_yaw_rate": 1.8
+      },
+      "battery": {
+        "capacity_wh": 1200,
+        "min_pct": 20,
+        "recharge_pct": 30,
+        "charged_pct": 95,
+        "charge_rate_pct_per_min": 25,
+        "drain_pct_per_min_idle": 0.2,
+        "drain_pct_per_m": 0.08
+      },
+      "charging_required": true,
+      "map_ids": [
+        "warehouse_demo"
+      ],
+      "layer": "ground",
+      "communication": {
+        "protocol": "simulation"
+      },
+      "priority": 5
+    },
+    {
+      "id": "inspection_uav",
+      "name": "Inspection UAV Fleet",
+      "robot_type": "uav",
+      "description": "Quadcopters for rack inspection and overwatch. Fly layered air corridors.",
+      "color": "#fbbf24",
+      "capabilities": [
+        "navigate",
+        "inspect",
+        "patrol",
+        "takeoff",
+        "land",
+        "charge"
+      ],
+      "navigation": {
+        "stack": "kinematic_sim",
+        "planner": "nayantra_graph_astar",
+        "controller": "kinematic",
+        "localization": "ground_truth"
+      },
+      "footprint": {
+        "shape": "circle",
+        "radius": 0.5
+      },
+      "limits": {
+        "max_speed": 3.0,
+        "max_accel": 1.5,
+        "max_decel": 2.0,
+        "max_yaw_rate": 2.5,
+        "max_vertical_speed": 1.5,
+        "cruise_altitude": 8.0
+      },
+      "battery": {
+        "capacity_wh": 180,
+        "min_pct": 35,
+        "recharge_pct": 40,
+        "charged_pct": 95,
+        "charge_rate_pct_per_min": 20,
+        "drain_pct_per_min_idle": 0.05,
+        "drain_pct_per_m": 0.12
+      },
+      "charging_required": true,
+      "map_ids": [
+        "warehouse_demo"
+      ],
+      "layer": "air",
+      "communication": {
+        "protocol": "simulation"
+      },
+      "priority": 6
+    },
+    {
+      "id": "security_quadruped",
+      "name": "Security Quadruped Fleet",
+      "robot_type": "quadruped",
+      "description": "Legged robots for patrol and inspection rounds.",
+      "color": "#4ade80",
+      "capabilities": [
+        "navigate",
+        "patrol",
+        "inspect",
+        "follow"
+      ],
+      "navigation": {
+        "stack": "kinematic_sim",
+        "planner": "nayantra_graph_astar",
+        "controller": "kinematic",
+        "localization": "ground_truth"
+      },
+      "footprint": {
+        "shape": "circle",
+        "radius": 0.35
+      },
+      "limits": {
+        "max_speed": 1.0,
+        "max_accel": 0.8,
+        "max_decel": 1.5,
+        "max_yaw_rate": 2.0
+      },
+      "battery": {
+        "capacity_wh": 600,
+        "min_pct": 25,
+        "recharge_pct": 30,
+        "charged_pct": 95,
+        "charge_rate_pct_per_min": 15,
+        "drain_pct_per_min_idle": 0.15,
+        "drain_pct_per_m": 0.1
+      },
+      "charging_required": false,
+      "map_ids": [
+        "warehouse_demo"
+      ],
+      "layer": "ground",
+      "communication": {
+        "protocol": "simulation"
+      },
+      "priority": 4
+    },
+    {
+      "id": "assembly_humanoid",
+      "name": "Assembly Humanoid Fleet",
+      "robot_type": "humanoid",
+      "description": "Bipedal humanoids for light picking and manipulation at storage.",
+      "color": "#c084fc",
+      "capabilities": [
+        "navigate",
+        "manipulate",
+        "pick",
+        "drop",
+        "carry_payload",
+        "inspect"
+      ],
+      "navigation": {
+        "stack": "kinematic_sim",
+        "planner": "nayantra_graph_astar",
+        "controller": "kinematic",
+        "localization": "ground_truth"
+      },
+      "footprint": {
+        "shape": "circle",
+        "radius": 0.3
+      },
+      "limits": {
+        "max_speed": 0.7,
+        "max_accel": 0.5,
+        "max_decel": 1.0,
+        "max_yaw_rate": 1.2
+      },
+      "battery": {
+        "capacity_wh": 800,
+        "min_pct": 25,
+        "recharge_pct": 30,
+        "charged_pct": 95,
+        "charge_rate_pct_per_min": 10,
+        "drain_pct_per_min_idle": 0.2,
+        "drain_pct_per_m": 0.12
+      },
+      "charging_required": false,
+      "map_ids": [
+        "warehouse_demo"
+      ],
+      "layer": "ground",
+      "communication": {
+        "protocol": "simulation"
+      },
+      "priority": 4
+    }
+  ],
+  "robots": [
+    {
+      "id": "ugv_01",
+      "name": "UGV-01",
+      "fleet_id": "warehouse_ugv",
+      "manufacturer": "Nayantra Sim",
+      "model": "Tugger T1 (kinematic sim)",
+      "physical": {
+        "payload_kg": 150,
+        "battery_wh": 1200,
+        "length": 0.9,
+        "width": 0.7,
+        "height": 0.5,
+        "turning_radius": 0.0
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/ugv_01",
+        "sensors": [
+          "lidar_2d",
+          "imu",
+          "wheel_odometry"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "CH1",
+        "battery_pct": 92
+      }
+    },
+    {
+      "id": "ugv_02",
+      "name": "UGV-02",
+      "fleet_id": "warehouse_ugv",
+      "manufacturer": "Nayantra Sim",
+      "model": "Tugger T1 (kinematic sim)",
+      "physical": {
+        "payload_kg": 150,
+        "battery_wh": 1200,
+        "length": 0.9,
+        "width": 0.7,
+        "height": 0.5,
+        "turning_radius": 0.0
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/ugv_02",
+        "sensors": [
+          "lidar_2d",
+          "imu",
+          "wheel_odometry"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "CH2",
+        "battery_pct": 86
+      }
+    },
+    {
+      "id": "ugv_03",
+      "name": "UGV-03",
+      "fleet_id": "warehouse_ugv",
+      "manufacturer": "Nayantra Sim",
+      "model": "Tugger T1 (kinematic sim)",
+      "physical": {
+        "payload_kg": 150,
+        "battery_wh": 1200,
+        "length": 0.9,
+        "width": 0.7,
+        "height": 0.5,
+        "turning_radius": 0.0
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/ugv_03",
+        "sensors": [
+          "lidar_2d",
+          "imu",
+          "wheel_odometry"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "CH3",
+        "battery_pct": 74
+      }
+    },
+    {
+      "id": "ugv_04",
+      "name": "UGV-04",
+      "fleet_id": "warehouse_ugv",
+      "manufacturer": "Nayantra Sim",
+      "model": "Tugger T1 (kinematic sim)",
+      "physical": {
+        "payload_kg": 150,
+        "battery_wh": 1200,
+        "length": 0.9,
+        "width": 0.7,
+        "height": 0.5,
+        "turning_radius": 0.0
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/ugv_04",
+        "sensors": [
+          "lidar_2d",
+          "imu",
+          "wheel_odometry"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "CH4",
+        "battery_pct": 58
+      }
+    },
+    {
+      "id": "uav_01",
+      "name": "UAV-01",
+      "fleet_id": "inspection_uav",
+      "manufacturer": "Nayantra Sim",
+      "model": "Quad X4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 1.5,
+        "battery_wh": 180,
+        "length": 0.8,
+        "width": 0.8,
+        "height": 0.3
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/uav_01",
+        "sensors": [
+          "gps",
+          "imu",
+          "camera",
+          "depth"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "PAD1",
+        "battery_pct": 97
+      }
+    },
+    {
+      "id": "uav_02",
+      "name": "UAV-02",
+      "fleet_id": "inspection_uav",
+      "manufacturer": "Nayantra Sim",
+      "model": "Quad X4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 1.5,
+        "battery_wh": 180,
+        "length": 0.8,
+        "width": 0.8,
+        "height": 0.3
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/uav_02",
+        "sensors": [
+          "gps",
+          "imu",
+          "camera",
+          "depth"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "PAD2",
+        "battery_pct": 90
+      }
+    },
+    {
+      "id": "uav_03",
+      "name": "UAV-03",
+      "fleet_id": "inspection_uav",
+      "manufacturer": "Nayantra Sim",
+      "model": "Quad X4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 1.5,
+        "battery_wh": 180,
+        "length": 0.8,
+        "width": 0.8,
+        "height": 0.3
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/uav_03",
+        "sensors": [
+          "gps",
+          "imu",
+          "camera",
+          "depth"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "PAD3",
+        "battery_pct": 81
+      }
+    },
+    {
+      "id": "uav_04",
+      "name": "UAV-04",
+      "fleet_id": "inspection_uav",
+      "manufacturer": "Nayantra Sim",
+      "model": "Quad X4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 1.5,
+        "battery_wh": 180,
+        "length": 0.8,
+        "width": 0.8,
+        "height": 0.3
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/uav_04",
+        "sensors": [
+          "gps",
+          "imu",
+          "camera",
+          "depth"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "PAD4",
+        "battery_pct": 70
+      }
+    },
+    {
+      "id": "quad_01",
+      "name": "Quadruped-01",
+      "fleet_id": "security_quadruped",
+      "manufacturer": "Nayantra Sim",
+      "model": "Legged L4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 10,
+        "battery_wh": 600,
+        "length": 0.7,
+        "width": 0.35,
+        "height": 0.6
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/quad_01",
+        "sensors": [
+          "lidar_3d",
+          "imu",
+          "camera"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "QP1",
+        "battery_pct": 95
+      }
+    },
+    {
+      "id": "quad_02",
+      "name": "Quadruped-02",
+      "fleet_id": "security_quadruped",
+      "manufacturer": "Nayantra Sim",
+      "model": "Legged L4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 10,
+        "battery_wh": 600,
+        "length": 0.7,
+        "width": 0.35,
+        "height": 0.6
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/quad_02",
+        "sensors": [
+          "lidar_3d",
+          "imu",
+          "camera"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "QP2",
+        "battery_pct": 88
+      }
+    },
+    {
+      "id": "quad_03",
+      "name": "Quadruped-03",
+      "fleet_id": "security_quadruped",
+      "manufacturer": "Nayantra Sim",
+      "model": "Legged L4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 10,
+        "battery_wh": 600,
+        "length": 0.7,
+        "width": 0.35,
+        "height": 0.6
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/quad_03",
+        "sensors": [
+          "lidar_3d",
+          "imu",
+          "camera"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "QP3",
+        "battery_pct": 83
+      }
+    },
+    {
+      "id": "quad_04",
+      "name": "Quadruped-04",
+      "fleet_id": "security_quadruped",
+      "manufacturer": "Nayantra Sim",
+      "model": "Legged L4 (kinematic sim)",
+      "physical": {
+        "payload_kg": 10,
+        "battery_wh": 600,
+        "length": 0.7,
+        "width": 0.35,
+        "height": 0.6
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/quad_04",
+        "sensors": [
+          "lidar_3d",
+          "imu",
+          "camera"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "QP4",
+        "battery_pct": 77
+      }
+    },
+    {
+      "id": "hum_01",
+      "name": "Humanoid-01",
+      "fleet_id": "assembly_humanoid",
+      "manufacturer": "Nayantra Sim",
+      "model": "Biped H2 (kinematic sim)",
+      "physical": {
+        "payload_kg": 15,
+        "battery_wh": 800,
+        "height": 1.7,
+        "width": 0.5,
+        "length": 0.35
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/hum_01",
+        "sensors": [
+          "stereo_camera",
+          "imu",
+          "force_torque"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "HP1",
+        "battery_pct": 93
+      }
+    },
+    {
+      "id": "hum_02",
+      "name": "Humanoid-02",
+      "fleet_id": "assembly_humanoid",
+      "manufacturer": "Nayantra Sim",
+      "model": "Biped H2 (kinematic sim)",
+      "physical": {
+        "payload_kg": 15,
+        "battery_wh": 800,
+        "height": 1.7,
+        "width": 0.5,
+        "length": 0.35
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/hum_02",
+        "sensors": [
+          "stereo_camera",
+          "imu",
+          "force_torque"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "HP2",
+        "battery_pct": 85
+      }
+    },
+    {
+      "id": "hum_03",
+      "name": "Humanoid-03",
+      "fleet_id": "assembly_humanoid",
+      "manufacturer": "Nayantra Sim",
+      "model": "Biped H2 (kinematic sim)",
+      "physical": {
+        "payload_kg": 15,
+        "battery_wh": 800,
+        "height": 1.7,
+        "width": 0.5,
+        "length": 0.35
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/hum_03",
+        "sensors": [
+          "stereo_camera",
+          "imu",
+          "force_torque"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "HP3",
+        "battery_pct": 79
+      }
+    },
+    {
+      "id": "hum_04",
+      "name": "Humanoid-04",
+      "fleet_id": "assembly_humanoid",
+      "manufacturer": "Nayantra Sim",
+      "model": "Biped H2 (kinematic sim)",
+      "physical": {
+        "payload_kg": 15,
+        "battery_wh": 800,
+        "height": 1.7,
+        "width": 0.5,
+        "length": 0.35
+      },
+      "navigation": {
+        "map_id": "warehouse_demo",
+        "namespace": "/hum_04",
+        "sensors": [
+          "stereo_camera",
+          "imu",
+          "force_torque"
+        ]
+      },
+      "spawn": {
+        "waypoint_id": "HP4",
+        "battery_pct": 72
+      }
+    }
+  ]
+}

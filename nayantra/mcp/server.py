@@ -1,16 +1,27 @@
 """
 nayantra/mcp/server.py
 
-MCP (Model Context Protocol) Server — FastAPI implementation.
+MCP tool server (FastAPI). The agent (and any other client) discovers and runs
+Nayantra's high-level operations here. Tools act on the Nayantra Core; nothing
+here touches robots directly.
 
 Transports:
-  GET  /tools          — list available tools
-  POST /run            — execute a tool (REST, blocking)
-  GET  /sse            — Server-Sent Events stream for real-time updates
+  GET  /tools          — tool schemas (JSON schema per tool, risk level)
+  POST /run            — run a tool: {tool, parameters, context?: {mission_id, command}}
+  GET  /sse            — Server-Sent Events stream of tool executions
   GET  /health         — liveness probe
 
-Auth:
-  All endpoints (except /health) require a Bearer JWT when USE_AUTH=true.
+Status codes on /run:
+  200  the tool ran; `result` may be {"ok": false, "error": …} when the core
+       rejected the request (unknown waypoint, no capable robot …) so the LLM
+       can read the reason and adapt; `result.confirmation_required` when an
+       operator must approve
+  404  unknown tool     422  parameters failed schema validation
+
+This is a REST transport shaped around MCP tool semantics, not the MCP
+JSON-RPC wire protocol.
+
+Auth: all endpoints except /health require a Bearer JWT when USE_AUTH=true.
 """
 
 from __future__ import annotations
@@ -28,61 +39,48 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from nayantra.config import settings
 from nayantra.mcp.auth import verify_token
-from nayantra.mcp.tools import execute_tool, get_all_tools
+from nayantra.mcp.core_client import CoreClient, Trace
+from nayantra.mcp.tools import ToolContext, ToolParamError, execute_tool, get_all_tools
 from nayantra.rmf_client.client import OpenRMFClient
 
-logger = logging.getLogger("rmf.mcp")
+logger = logging.getLogger("nayantra.mcp")
 
-# ---------------------------------------------------------------------------
-# Shared state
-# ---------------------------------------------------------------------------
-
+core_client: CoreClient | None = None
 rmf_client: OpenRMFClient | None = None
 _event_queues: list[asyncio.Queue] = []  # fans out to SSE subscribers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global rmf_client
-    rmf_client = OpenRMFClient(
-        api_url=settings.OPENRMF_API_URL,
-        token=settings.OPENRMF_API_TOKEN,
-        debug=settings.DEBUG_MODE,
+    global core_client, rmf_client
+    core_client = CoreClient()
+    if settings.OPENRMF_INFRA_TOOLS:
+        rmf_client = OpenRMFClient(
+            api_url=settings.OPENRMF_API_URL,
+            token=settings.OPENRMF_API_TOKEN,
+            debug=settings.DEBUG_MODE,
+        )
+    logger.info(
+        f"MCP server ready — {len(get_all_tools())} tools, core at {settings.NAYANTRA_CORE_URL}"
     )
-    logger.info(f"MCP Server ready — RMF endpoint: {settings.OPENRMF_API_URL}")
     yield
+    await core_client.close()
     if rmf_client:
         await rmf_client.close()
 
 
-# ---------------------------------------------------------------------------
-# App
-# ---------------------------------------------------------------------------
-
 app = FastAPI(
-    title="RMF MCP Server",
-    description="Model Context Protocol server for Open-RMF fleet management",
-    version="1.0.0",
+    title="Nayantra MCP tool server",
+    description="High-level, schema-validated robot-fleet operations for LLM agents",
+    version="2.0.0",
     lifespan=lifespan,
 )
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 security = HTTPBearer(auto_error=False)
-
-
-# ---------------------------------------------------------------------------
-# Auth dependency
-# ---------------------------------------------------------------------------
 
 
 async def auth_guard(
@@ -91,115 +89,102 @@ async def auth_guard(
     if not settings.USE_AUTH:
         return None
     if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Bearer token",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Bearer token")
     payload = verify_token(credentials.credentials)
     if payload is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or expired token",
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token"
         )
     return payload
 
 
-# ---------------------------------------------------------------------------
-# Request / Response models
-# ---------------------------------------------------------------------------
+class RunContext(BaseModel):
+    mission_id: str | None = None
+    command: str | None = None
 
 
 class RunRequest(BaseModel):
     tool: str
-    parameters: dict[str, Any] = {}
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    context: RunContext | None = None
 
 
 class RunResponse(BaseModel):
     tool: str
     result: Any
+    ok: bool
     duration_ms: float
     timestamp: float
 
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
-
-
 @app.get("/health")
 async def health():
-    return {"status": "ok", "tools": len(get_all_tools())}
+    return {"status": "ok", "tools": len(get_all_tools()), "core": settings.NAYANTRA_CORE_URL}
 
 
 @app.get("/tools", dependencies=[Depends(auth_guard)])
-async def list_tools() -> list[dict[str, Any]]:
-    """Return the full tool schema for all registered MCP tools."""
-    return get_all_tools()
+async def list_tools(include_legacy: bool = False) -> list[dict[str, Any]]:
+    """Tool schemas the LLM may call. Legacy aliases are executable but hidden by default."""
+    return get_all_tools(include_legacy=include_legacy)
 
 
 @app.post("/run", response_model=RunResponse, dependencies=[Depends(auth_guard)])
 async def run_tool(req: RunRequest):
-    """Execute a named tool against the OpenRMF backend."""
-    if rmf_client is None:
-        raise HTTPException(503, "RMF client not initialised")
-
+    if core_client is None:
+        raise HTTPException(503, "MCP server not initialised")
+    ctx = ToolContext(
+        core=core_client,
+        rmf=rmf_client,
+        trace=Trace(
+            mission_id=req.context.mission_id if req.context else None,
+            command=req.context.command if req.context else None,
+        ),
+    )
     t0 = time.monotonic()
     try:
-        result = await execute_tool(rmf_client, req.tool, req.parameters)
+        result = await execute_tool(ctx, req.tool, req.parameters)
     except KeyError as exc:
-        raise HTTPException(404, f"Unknown tool: {req.tool!r}") from exc
-    except Exception as exc:
-        logger.exception(f"Tool execution error [{req.tool}]: {exc}")
-        raise HTTPException(500, str(exc)) from exc
-
-    duration = (time.monotonic() - t0) * 1000
-
-    # Fan-out to SSE subscribers
+        raise HTTPException(
+            404, f"Unknown tool: {req.tool!r}. Call GET /tools for the list."
+        ) from exc
+    except ToolParamError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(f"Tool execution error [{req.tool}]")
+        raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
+    duration = round((time.monotonic() - t0) * 1000, 2)
+    ok = not (isinstance(result, dict) and result.get("ok") is False)
     event = {
         "type": "tool_result",
         "tool": req.tool,
+        "ok": ok,
         "result": result,
-        "duration_ms": round(duration, 2),
+        "duration_ms": duration,
         "timestamp": time.time(),
     }
-    slow_subscribers = 0
     for q in list(_event_queues):
         try:
             q.put_nowait(event)
         except asyncio.QueueFull:
-            slow_subscribers += 1
-    if slow_subscribers:
-        logger.warning(
-            f"SSE: dropped event for {slow_subscribers}/{len(_event_queues)} "
-            f"slow subscriber(s) on tool {req.tool!r}"
-        )
-
+            logger.warning(f"SSE: dropped event for a slow subscriber on tool {req.tool!r}")
     return RunResponse(
-        tool=req.tool,
-        result=result,
-        duration_ms=round(duration, 2),
-        timestamp=time.time(),
+        tool=req.tool, result=result, ok=ok, duration_ms=duration, timestamp=time.time()
     )
 
 
 @app.get("/sse", dependencies=[Depends(auth_guard)])
 async def sse_stream(request: Request):
-    """
-    Server-Sent Events endpoint.
-    Subscribers receive real-time tool execution events.
-    """
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
     _event_queues.append(queue)
 
     async def generator() -> AsyncIterator[str]:
         try:
-            # Send a heartbeat every 15 s to keep the connection alive
             while True:
                 if await request.is_disconnected():
                     break
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=15.0)
-                    yield f"data: {json.dumps(event)}\n\n"
+                    yield f"data: {json.dumps(event, default=str)}\n\n"
                 except TimeoutError:
                     yield ": heartbeat\n\n"
         finally:
@@ -210,11 +195,6 @@ async def sse_stream(request: Request):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-# ---------------------------------------------------------------------------
-# CLI entry
-# ---------------------------------------------------------------------------
 
 
 def main() -> None:

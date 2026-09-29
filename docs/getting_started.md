@@ -51,6 +51,9 @@ bash scripts/setup.sh
 4. Copy `config/.env.example` → `.env` if it's missing
 5. Create `runtime/logs/`, `runtime/pids/`, and `data/`
 
+`scripts/start.sh` builds the operator UI (`web/dist`) on its first run
+when `npm` (Node.js 20.19+ / 22.12+) is on `PATH`.
+
 > **Windows users:** run `scripts/setup.sh` from a WSL2 shell or Git Bash. The
 > native Python path (`python -m venv`, `pip install -e .`) also works in
 > PowerShell if you prefer — see [§7 Windows-native steps](#7-windows-native-steps).
@@ -76,8 +79,9 @@ ISAAC_SIM_URL=http://localhost:8211
 
 ## 3. Smoke test (no Isaac Sim yet)
 
-Before plugging in Isaac Sim, verify the stack works against the simulated
-RMF stub.
+Before plugging in Isaac Sim, verify the stack works against the Nayantra
+Core's built-in simulator. The core loads the `warehouse_demo` scenario on
+first start: 4 fleets and 16 simulated robots.
 
 ### 3.1 Temporarily disable Isaac Sim
 
@@ -94,8 +98,8 @@ bash scripts/start.sh
 
 You should see:
 ```
-[start] Starting rmf-stub on port 8000 ...
-[start] rmf-stub is healthy
+[start] Starting core on port 8000 ...
+[start] core is healthy
 [start] Starting mcp-server on port 7000 ...
 [start] mcp-server is healthy
 [start] Starting agent-api on port 8080 ...
@@ -111,9 +115,11 @@ source .venv/bin/activate
 python -m nayantra.agent.main "list all robots"
 ```
 
-You should get a summary describing the simulated turtlebot fleet.
+You should get a summary of the four simulated fleets.
 
-Or open the dashboard in a browser: **http://localhost:8080/**
+Or open the operator UI in a browser: **http://localhost:8000/**. It shows
+the live map, fleets, tasks, traffic and a natural-language command bar.
+The command bar relays to the agent API on :8080.
 
 ### 3.4 Stop the stack
 
@@ -221,8 +227,18 @@ python -m nayantra.agent.main "what robots are available?"
 python -m nayantra.agent.main --stream "dispatch a delivery from main door to store room"
 ```
 
-Or use the dashboard at **http://localhost:8080/** — it has a command box
-and a real-time fleet view fed by the WebSocket at `/ws/fleet`.
+Or use the operator UI at **http://localhost:8000/**.
+
+> The Isaac Sim path above uses the legacy `isaac_sim` spawner. To drive
+> Isaac robots through the core instead, you have two options:
+>
+> - Register a robot with protocol `isaac_demo`, pointing its endpoint at
+>   the `scripts/isaac_demo.py` HTTP API (default `http://127.0.0.1:8900`).
+> - Start the core with `--scenario isaac_carter`. This registers carter1
+>   over ROS 2 and uses the Nav2 adapter, which is not yet validated on a
+>   live stack.
+>
+> Multi-robot Isaac through the core is not wired up yet.
 
 ---
 
@@ -230,13 +246,15 @@ and a real-time fleet view fed by the WebSocket at `/ws/fleet`.
 
 | Check                | Command                                       | Expected                        |
 |----------------------|-----------------------------------------------|---------------------------------|
-| Stub RMF             | `curl http://localhost:8000/health`           | `{"status":"ok"}`               |
+| Nayantra Core        | `curl http://localhost:8000/api/v1/health`    | `{"status":"ok","version":"2.0.0",...}` |
+| Operator UI          | open `http://localhost:8000/`                 | map with the warehouse demo      |
 | MCP server           | `curl http://localhost:7000/health`           | `{"status":"ok","tools":N}`     |
 | MCP tool list        | `curl http://localhost:7000/tools`            | JSON array of ~25 tools         |
 | Agent API            | `curl http://localhost:8080/health`           | `{"status":"ok"}`                |
-| Agent readiness      | `curl http://localhost:8080/v1/readiness`     | All checks green                 |
+| Agent readiness      | `curl http://localhost:8080/readiness`        | All checks green                 |
 | Isaac Sim bridge     | `curl http://localhost:8211/health`           | `{"isaac_available":true,...}` |
-| Unit tests           | `pytest`                                      | 172 passed                       |
+| Unit tests           | `pytest`                                      | 229 passed                       |
+| UI build             | `cd web && npm ci && npm run build`           | typecheck + build succeed        |
 | Linter               | `ruff check nayantra tests scripts`           | no errors                        |
 
 ---
@@ -255,9 +273,12 @@ pip install -e ".[test]"
 Copy-Item config\.env.example .env
 mkdir runtime\logs, runtime\pids, data -Force
 
-# Edit .env, then start each service in its own terminal:
-python docker\rmf_stub_server.py                                # Terminal 1
-python -m nayantra.mcp.server                                        # Terminal 2
+# Build the operator UI once (needs Node.js 20.19+ / 22.12+)
+cd web; npm ci; npm run build; cd ..
+
+# Edit .env, then either run scripts\start.ps1, or start each service in its own terminal:
+python -m nayantra.core.server                                          # Terminal 1 (:8000)
+python -m nayantra.mcp.server                                           # Terminal 2 (:7000)
 python -m uvicorn nayantra.agent.api_v2:app --host 0.0.0.0 --port 8080  # Terminal 3
 ```
 
@@ -306,8 +327,8 @@ cp config/.env.example .env       # then edit .env
 docker compose -f docker/docker-compose.yml up --build
 ```
 
-That brings up: `mcp-server`, `agent-api`, `rmf-stub`, `prometheus`,
-`grafana`. Isaac Sim is **not** containerised — it still runs on the host
+That brings up: `core` (operator UI + API, state in a volume),
+`mcp-server`, `agent-api`, `prometheus` and `grafana`. Isaac Sim is **not** containerised — it still runs on the host
 GPU. Set `ISAAC_SIM_URL=http://host.docker.internal:8211` (Mac/Windows) or
 the host bridge IP (Linux) so containers can reach it.
 
@@ -315,10 +336,13 @@ the host bridge IP (Linux) so containers can reach it.
 
 ## 10. Next steps
 
-- **Add new MCP tools:** drop a `@_tool(...)` decorator in `nayantra/mcp/tools.py`
-  — no routing changes needed.
-- **Plug in real robots:** set `ROS2_ENABLED=true` and source your ROS 2
-  workspace before launching `nayantra/ros2_adapter/fleet_adapter.py`.
+- **Add new MCP tools:** add an `@_tool(...)` handler with a Pydantic parameter model
+  in `nayantra/mcp/tools.py` that calls the core API. Tools should create
+  tasks or commands; they should not drive robots directly.
+- **Plug in real robots:** register them in the UI's robot wizard with the
+  `ros2` protocol (Nav2 adapter, not yet validated on a live stack), or
+  write an adapter in `nayantra/core/adapters/`. See
+  [platform_architecture.md](platform_architecture.md).
 - **Multi-site deployments:** set `ZENOH_ENABLED=true` and start the bridge
   via `python -m nayantra.zenoh_bridge.bridge --mode router` on your server.
 - **Production hardening:** set `USE_AUTH=true`, generate a fresh

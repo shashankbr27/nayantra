@@ -1,0 +1,1986 @@
+{
+  "id": "warehouse_demo",
+  "name": "Warehouse A",
+  "description": "40 x 24 m multi-fleet demo warehouse: receiving, storage, charging, loading, a narrow single-width corridor, a restricted high-voltage area and a drone bay with layered air corridors.",
+  "frame": "map",
+  "bounds": {
+    "min_x": 0,
+    "min_y": 0,
+    "max_x": 40,
+    "max_y": 24
+  },
+  "walls": [
+    [
+      [
+        0,
+        0
+      ],
+      [
+        40,
+        0
+      ],
+      [
+        40,
+        24
+      ],
+      [
+        0,
+        24
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        18.9,
+        5.8
+      ],
+      [
+        18.9,
+        13.7
+      ]
+    ],
+    [
+      [
+        21.1,
+        5.8
+      ],
+      [
+        21.1,
+        13.7
+      ]
+    ],
+    [
+      [
+        0,
+        17.0
+      ],
+      [
+        1.0,
+        17.0
+      ]
+    ],
+    [
+      [
+        10.0,
+        17.0
+      ],
+      [
+        12.5,
+        17.0
+      ]
+    ],
+    [
+      [
+        24.0,
+        17.0
+      ],
+      [
+        26.8,
+        17.0
+      ]
+    ],
+    [
+      [
+        37.3,
+        17.0
+      ],
+      [
+        40,
+        17.0
+      ]
+    ],
+    [
+      [
+        11.0,
+        0
+      ],
+      [
+        11.0,
+        3.2
+      ]
+    ],
+    [
+      [
+        30.2,
+        0
+      ],
+      [
+        30.2,
+        3.2
+      ]
+    ]
+  ],
+  "obstacles": [
+    [
+      [
+        27.3,
+        18.3
+      ],
+      [
+        28.2,
+        18.3
+      ],
+      [
+        28.2,
+        23.0
+      ],
+      [
+        27.3,
+        23.0
+      ]
+    ],
+    [
+      [
+        29.8,
+        18.3
+      ],
+      [
+        31.2,
+        18.3
+      ],
+      [
+        31.2,
+        23.0
+      ],
+      [
+        29.8,
+        23.0
+      ]
+    ],
+    [
+      [
+        32.8,
+        18.3
+      ],
+      [
+        34.2,
+        18.3
+      ],
+      [
+        34.2,
+        23.0
+      ],
+      [
+        32.8,
+        23.0
+      ]
+    ],
+    [
+      [
+        35.8,
+        18.3
+      ],
+      [
+        36.8,
+        18.3
+      ],
+      [
+        36.8,
+        23.0
+      ],
+      [
+        35.8,
+        23.0
+      ]
+    ],
+    [
+      [
+        5.5,
+        6.2
+      ],
+      [
+        12.5,
+        6.2
+      ],
+      [
+        12.5,
+        6.9
+      ],
+      [
+        5.5,
+        6.9
+      ]
+    ],
+    [
+      [
+        5.5,
+        12.6
+      ],
+      [
+        12.5,
+        12.6
+      ],
+      [
+        12.5,
+        13.3
+      ],
+      [
+        5.5,
+        13.3
+      ]
+    ],
+    [
+      [
+        15.6,
+        6.2
+      ],
+      [
+        18.4,
+        6.2
+      ],
+      [
+        18.4,
+        6.9
+      ],
+      [
+        15.6,
+        6.9
+      ]
+    ],
+    [
+      [
+        15.6,
+        12.6
+      ],
+      [
+        18.4,
+        12.6
+      ],
+      [
+        18.4,
+        13.3
+      ],
+      [
+        15.6,
+        13.3
+      ]
+    ],
+    [
+      [
+        21.6,
+        6.2
+      ],
+      [
+        23.0,
+        6.2
+      ],
+      [
+        23.0,
+        13.3
+      ],
+      [
+        21.6,
+        13.3
+      ]
+    ],
+    [
+      [
+        34.4,
+        6.2
+      ],
+      [
+        36.8,
+        6.2
+      ],
+      [
+        36.8,
+        6.9
+      ],
+      [
+        34.4,
+        6.9
+      ]
+    ],
+    [
+      [
+        34.4,
+        12.6
+      ],
+      [
+        36.8,
+        12.6
+      ],
+      [
+        36.8,
+        13.3
+      ],
+      [
+        34.4,
+        13.3
+      ]
+    ]
+  ],
+  "waypoints": [
+    {
+      "id": "NA1",
+      "name": "North Aisle 1",
+      "x": 2,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA1",
+      "name": "South Aisle 1",
+      "x": 2,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA2",
+      "name": "North Aisle 2",
+      "x": 4.5,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA2",
+      "name": "South Aisle 2",
+      "x": 4.5,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA3",
+      "name": "North Aisle 3",
+      "x": 7,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA3",
+      "name": "South Aisle 3",
+      "x": 7,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA4",
+      "name": "North Aisle 4",
+      "x": 9.5,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA4",
+      "name": "South Aisle 4",
+      "x": 9.5,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA5",
+      "name": "Intersection 1",
+      "x": 14,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA5",
+      "name": "Intersection 4",
+      "x": 14,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA6",
+      "name": "Intersection 2",
+      "x": 20,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA6",
+      "name": "Corridor South",
+      "x": 20,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA7",
+      "name": "North Aisle 7",
+      "x": 26,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA7",
+      "name": "South Aisle 7",
+      "x": 26,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA8",
+      "name": "Intersection 3",
+      "x": 29,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA8",
+      "name": "Intersection 5",
+      "x": 29,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA9",
+      "name": "North Aisle 9",
+      "x": 32,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA9",
+      "name": "South Aisle 9",
+      "x": 32,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA10",
+      "name": "North Aisle 10",
+      "x": 35,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA10",
+      "name": "South Aisle 10",
+      "x": 35,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "NA11",
+      "name": "North Aisle 11",
+      "x": 38,
+      "y": 15.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "SA11",
+      "name": "South Aisle 11",
+      "x": 38,
+      "y": 4.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "WC1",
+      "name": "West Connector 1",
+      "x": 2.0,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "WC2",
+      "name": "West Connector 2",
+      "x": 2.0,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "MC1",
+      "name": "Mid Connector 1",
+      "x": 14.0,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "MC2",
+      "name": "Mid Connector 2",
+      "x": 14.0,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "K1",
+      "name": "Narrow Corridor South",
+      "x": 20.0,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "K2",
+      "name": "Narrow Corridor North",
+      "x": 20.0,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "RX1",
+      "name": "HV Maintenance Point",
+      "x": 29.0,
+      "y": 9.75,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "inspection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "EC1",
+      "name": "East Connector 1",
+      "x": 38.0,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "EC2",
+      "name": "East Connector 2",
+      "x": 38.0,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "CH1",
+      "name": "Charger 1",
+      "x": 2,
+      "y": 1.8,
+      "z": 0.0,
+      "yaw": -1.5708,
+      "type": "charger",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "CH2",
+      "name": "Charger 2",
+      "x": 4.5,
+      "y": 1.8,
+      "z": 0.0,
+      "yaw": -1.5708,
+      "type": "charger",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "CH3",
+      "name": "Charger 3",
+      "x": 7,
+      "y": 1.8,
+      "z": 0.0,
+      "yaw": -1.5708,
+      "type": "charger",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "CH4",
+      "name": "Charger 4",
+      "x": 9.5,
+      "y": 1.8,
+      "z": 0.0,
+      "yaw": -1.5708,
+      "type": "charger",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "RC1",
+      "name": "Receiving Bay 1",
+      "x": 2,
+      "y": 19.5,
+      "z": 0.0,
+      "yaw": 1.5708,
+      "type": "pickup",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "RC2",
+      "name": "Receiving Bay 2",
+      "x": 4.5,
+      "y": 19.5,
+      "z": 0.0,
+      "yaw": 1.5708,
+      "type": "pickup",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "RC3",
+      "name": "Receiving Bay 3",
+      "x": 7,
+      "y": 19.5,
+      "z": 0.0,
+      "yaw": 1.5708,
+      "type": "pickup",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "ST1",
+      "name": "Storage Rack A",
+      "x": 29,
+      "y": 19.5,
+      "z": 0.0,
+      "yaw": 1.5708,
+      "type": "dropoff",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "ST2",
+      "name": "Storage Rack B",
+      "x": 32,
+      "y": 19.5,
+      "z": 0.0,
+      "yaw": 1.5708,
+      "type": "dropoff",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "ST3",
+      "name": "Storage Rack C",
+      "x": 35,
+      "y": 19.5,
+      "z": 0.0,
+      "yaw": 1.5708,
+      "type": "dropoff",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "LD1",
+      "name": "Loading Dock 1",
+      "x": 32.0,
+      "y": 1.8,
+      "z": 0.0,
+      "yaw": -1.5708,
+      "type": "dock",
+      "layer": "ground",
+      "aliases": [
+        "loading_zone"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "LD2",
+      "name": "Loading Dock 2",
+      "x": 35.0,
+      "y": 1.8,
+      "z": 0.0,
+      "yaw": -1.5708,
+      "type": "dock",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "QP1",
+      "name": "Quadruped Bay 1",
+      "x": 4.5,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "QP2",
+      "name": "Quadruped Bay 2",
+      "x": 4.5,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "QP3",
+      "name": "Quadruped Bay 3",
+      "x": 11.5,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "QP4",
+      "name": "Quadruped Bay 4",
+      "x": 11.5,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "HP1",
+      "name": "Humanoid Bay 1",
+      "x": 16.5,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "HP2",
+      "name": "Humanoid Bay 2",
+      "x": 16.5,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "HP3",
+      "name": "Humanoid Bay 3",
+      "x": 35.5,
+      "y": 8.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "HP4",
+      "name": "Humanoid Bay 4",
+      "x": 35.5,
+      "y": 11.5,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "parking",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "PAD1",
+      "name": "Drone Pad 1",
+      "x": 14.5,
+      "y": 21.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "landing_pad",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "PAD2",
+      "name": "Drone Pad 2",
+      "x": 17.0,
+      "y": 21.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "landing_pad",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "PAD3",
+      "name": "Drone Pad 3",
+      "x": 19.5,
+      "y": 21.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "landing_pad",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "PAD4",
+      "name": "Drone Pad 4",
+      "x": 22.0,
+      "y": 21.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "landing_pad",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "AH",
+      "name": "Drone Hub (air)",
+      "x": 18.25,
+      "y": 17.5,
+      "z": 8.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "AR",
+      "name": "Receiving Overwatch (air)",
+      "x": 5.0,
+      "y": 21.5,
+      "z": 8.0,
+      "yaw": 0.0,
+      "type": "inspection",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "AS",
+      "name": "Storage Overwatch (air)",
+      "x": 32.0,
+      "y": 21.5,
+      "z": 8.0,
+      "yaw": 0.0,
+      "type": "inspection",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "AE",
+      "name": "East Air Gate",
+      "x": 38.5,
+      "y": 13.0,
+      "z": 8.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "AL",
+      "name": "Loading Overwatch (air)",
+      "x": 34.0,
+      "y": 2.5,
+      "z": 8.0,
+      "yaw": 0.0,
+      "type": "inspection",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "AW",
+      "name": "West Air Gate",
+      "x": 1.0,
+      "y": 13.0,
+      "z": 8.0,
+      "yaw": 0.0,
+      "type": "intersection",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "AC",
+      "name": "Charging Overwatch (air)",
+      "x": 6.0,
+      "y": 2.5,
+      "z": 8.0,
+      "yaw": 0.0,
+      "type": "inspection",
+      "layer": "air",
+      "aliases": [],
+      "metadata": {}
+    }
+  ],
+  "lanes": [
+    {
+      "id": "LN1",
+      "from_id": "NA1",
+      "to_id": "NA2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 1"
+    },
+    {
+      "id": "LS1",
+      "from_id": "SA1",
+      "to_id": "SA2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 1"
+    },
+    {
+      "id": "LN2",
+      "from_id": "NA2",
+      "to_id": "NA3",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 2"
+    },
+    {
+      "id": "LS2",
+      "from_id": "SA2",
+      "to_id": "SA3",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 2"
+    },
+    {
+      "id": "LN3",
+      "from_id": "NA3",
+      "to_id": "NA4",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 3"
+    },
+    {
+      "id": "LS3",
+      "from_id": "SA3",
+      "to_id": "SA4",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 3"
+    },
+    {
+      "id": "LN4",
+      "from_id": "NA4",
+      "to_id": "NA5",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 4"
+    },
+    {
+      "id": "LS4",
+      "from_id": "SA4",
+      "to_id": "SA5",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 4"
+    },
+    {
+      "id": "LN5",
+      "from_id": "NA5",
+      "to_id": "NA6",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 5"
+    },
+    {
+      "id": "LS5",
+      "from_id": "SA5",
+      "to_id": "SA6",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 5"
+    },
+    {
+      "id": "LN6",
+      "from_id": "NA6",
+      "to_id": "NA7",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 6"
+    },
+    {
+      "id": "LS6",
+      "from_id": "SA6",
+      "to_id": "SA7",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 6"
+    },
+    {
+      "id": "LN7",
+      "from_id": "NA7",
+      "to_id": "NA8",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 7"
+    },
+    {
+      "id": "LS7",
+      "from_id": "SA7",
+      "to_id": "SA8",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 7"
+    },
+    {
+      "id": "LN8",
+      "from_id": "NA8",
+      "to_id": "NA9",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 8"
+    },
+    {
+      "id": "LS8",
+      "from_id": "SA8",
+      "to_id": "SA9",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 8"
+    },
+    {
+      "id": "LN9",
+      "from_id": "NA9",
+      "to_id": "NA10",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 9"
+    },
+    {
+      "id": "LS9",
+      "from_id": "SA9",
+      "to_id": "SA10",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 9"
+    },
+    {
+      "id": "LN10",
+      "from_id": "NA10",
+      "to_id": "NA11",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "North aisle 10"
+    },
+    {
+      "id": "LS10",
+      "from_id": "SA10",
+      "to_id": "SA11",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": "South aisle 10"
+    },
+    {
+      "id": "LW1",
+      "from_id": "SA1",
+      "to_id": "WC1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.0,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LW2",
+      "from_id": "WC1",
+      "to_id": "WC2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.0,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LW3",
+      "from_id": "WC2",
+      "to_id": "NA1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.0,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LM1",
+      "from_id": "SA5",
+      "to_id": "MC1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.2,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LM2",
+      "from_id": "MC1",
+      "to_id": "MC2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.2,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LM3",
+      "from_id": "MC2",
+      "to_id": "NA5",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.2,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LK1",
+      "from_id": "SA6",
+      "to_id": "K1",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.1,
+      "layer": "ground",
+      "altitude": null,
+      "name": "Narrow corridor"
+    },
+    {
+      "id": "LK2",
+      "from_id": "K1",
+      "to_id": "K2",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.1,
+      "layer": "ground",
+      "altitude": null,
+      "name": "Narrow corridor"
+    },
+    {
+      "id": "LK3",
+      "from_id": "K2",
+      "to_id": "NA6",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.1,
+      "layer": "ground",
+      "altitude": null,
+      "name": "Narrow corridor"
+    },
+    {
+      "id": "LR1",
+      "from_id": "SA8",
+      "to_id": "RX1",
+      "bidirectional": true,
+      "speed_limit": 0.4,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": "Maintenance shortcut"
+    },
+    {
+      "id": "LR2",
+      "from_id": "RX1",
+      "to_id": "NA8",
+      "bidirectional": true,
+      "speed_limit": 0.4,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": "Maintenance shortcut"
+    },
+    {
+      "id": "LE1",
+      "from_id": "SA11",
+      "to_id": "EC1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.0,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LE2",
+      "from_id": "EC1",
+      "to_id": "EC2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.0,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LE3",
+      "from_id": "EC2",
+      "to_id": "NA11",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 2.0,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LC1",
+      "from_id": "SA1",
+      "to_id": "CH1",
+      "bidirectional": true,
+      "speed_limit": 0.4,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LC2",
+      "from_id": "SA2",
+      "to_id": "CH2",
+      "bidirectional": true,
+      "speed_limit": 0.4,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LC3",
+      "from_id": "SA3",
+      "to_id": "CH3",
+      "bidirectional": true,
+      "speed_limit": 0.4,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LC4",
+      "from_id": "SA4",
+      "to_id": "CH4",
+      "bidirectional": true,
+      "speed_limit": 0.4,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LRC1",
+      "from_id": "NA1",
+      "to_id": "RC1",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LRC2",
+      "from_id": "NA2",
+      "to_id": "RC2",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LRC3",
+      "from_id": "NA3",
+      "to_id": "RC3",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LST1",
+      "from_id": "NA8",
+      "to_id": "ST1",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LST2",
+      "from_id": "NA9",
+      "to_id": "ST2",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LST3",
+      "from_id": "NA10",
+      "to_id": "ST3",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LLD1",
+      "from_id": "SA9",
+      "to_id": "LD1",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LLD2",
+      "from_id": "SA10",
+      "to_id": "LD2",
+      "bidirectional": true,
+      "speed_limit": 0.5,
+      "width": 1.6,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LQ1",
+      "from_id": "WC1",
+      "to_id": "QP1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LQ2",
+      "from_id": "WC2",
+      "to_id": "QP2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LQ3",
+      "from_id": "MC1",
+      "to_id": "QP3",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LQ4",
+      "from_id": "MC2",
+      "to_id": "QP4",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LH1",
+      "from_id": "MC1",
+      "to_id": "HP1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LH2",
+      "from_id": "MC2",
+      "to_id": "HP2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LH3",
+      "from_id": "EC1",
+      "to_id": "HP3",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LH4",
+      "from_id": "EC2",
+      "to_id": "HP4",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": 1.4,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "LA_PAD1",
+      "from_id": "PAD1",
+      "to_id": "AH",
+      "bidirectional": true,
+      "speed_limit": 1.0,
+      "width": null,
+      "layer": "air",
+      "altitude": 8.0,
+      "name": ""
+    },
+    {
+      "id": "LA_PAD2",
+      "from_id": "PAD2",
+      "to_id": "AH",
+      "bidirectional": true,
+      "speed_limit": 1.0,
+      "width": null,
+      "layer": "air",
+      "altitude": 8.0,
+      "name": ""
+    },
+    {
+      "id": "LA_PAD3",
+      "from_id": "PAD3",
+      "to_id": "AH",
+      "bidirectional": true,
+      "speed_limit": 1.0,
+      "width": null,
+      "layer": "air",
+      "altitude": 8.0,
+      "name": ""
+    },
+    {
+      "id": "LA_PAD4",
+      "from_id": "PAD4",
+      "to_id": "AH",
+      "bidirectional": true,
+      "speed_limit": 1.0,
+      "width": null,
+      "layer": "air",
+      "altitude": 8.0,
+      "name": ""
+    },
+    {
+      "id": "LA_E1",
+      "from_id": "AH",
+      "to_id": "AS",
+      "bidirectional": false,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 8.0,
+      "name": "Eastbound 8 m"
+    },
+    {
+      "id": "LA_W1",
+      "from_id": "AS",
+      "to_id": "AH",
+      "bidirectional": false,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 12.0,
+      "name": "Westbound 12 m"
+    },
+    {
+      "id": "LA_W2",
+      "from_id": "AH",
+      "to_id": "AR",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 10.0,
+      "name": "Receiving corridor"
+    },
+    {
+      "id": "LA_E2",
+      "from_id": "AS",
+      "to_id": "AE",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 8.0,
+      "name": ""
+    },
+    {
+      "id": "LA_E3",
+      "from_id": "AE",
+      "to_id": "AL",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 8.0,
+      "name": ""
+    },
+    {
+      "id": "LA_W3",
+      "from_id": "AR",
+      "to_id": "AW",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 10.0,
+      "name": ""
+    },
+    {
+      "id": "LA_W4",
+      "from_id": "AW",
+      "to_id": "AC",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 10.0,
+      "name": ""
+    },
+    {
+      "id": "LA_S1",
+      "from_id": "AC",
+      "to_id": "AL",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "air",
+      "altitude": 14.0,
+      "name": "South transit 14 m"
+    }
+  ],
+  "zones": [
+    {
+      "id": "zone_receiving",
+      "name": "Receiving",
+      "type": "receiving",
+      "polygon": [
+        [
+          0.8,
+          17.2
+        ],
+        [
+          9.2,
+          17.2
+        ],
+        [
+          9.2,
+          23.2
+        ],
+        [
+          0.8,
+          23.2
+        ]
+      ]
+    },
+    {
+      "id": "zone_storage",
+      "name": "Storage",
+      "type": "storage",
+      "polygon": [
+        [
+          27.0,
+          17.2
+        ],
+        [
+          37.0,
+          17.2
+        ],
+        [
+          37.0,
+          23.2
+        ],
+        [
+          27.0,
+          23.2
+        ]
+      ]
+    },
+    {
+      "id": "zone_charging",
+      "name": "Charging Station",
+      "type": "charging",
+      "polygon": [
+        [
+          0.8,
+          0.6
+        ],
+        [
+          10.7,
+          0.6
+        ],
+        [
+          10.7,
+          3.1
+        ],
+        [
+          0.8,
+          3.1
+        ]
+      ]
+    },
+    {
+      "id": "zone_loading",
+      "name": "Loading Area",
+      "type": "loading",
+      "polygon": [
+        [
+          30.5,
+          0.6
+        ],
+        [
+          37.0,
+          0.6
+        ],
+        [
+          37.0,
+          3.1
+        ],
+        [
+          30.5,
+          3.1
+        ]
+      ]
+    },
+    {
+      "id": "zone_hv",
+      "name": "High-Voltage Maintenance Area",
+      "type": "restricted",
+      "polygon": [
+        [
+          23.5,
+          6.6
+        ],
+        [
+          33.8,
+          6.6
+        ],
+        [
+          33.8,
+          12.9
+        ],
+        [
+          23.5,
+          12.9
+        ]
+      ],
+      "allowed_fleets": []
+    },
+    {
+      "id": "zone_hv_nofly",
+      "name": "HV No-Fly",
+      "type": "no_fly",
+      "layer": "air",
+      "polygon": [
+        [
+          23.5,
+          6.6
+        ],
+        [
+          33.8,
+          6.6
+        ],
+        [
+          33.8,
+          12.9
+        ],
+        [
+          23.5,
+          12.9
+        ]
+      ]
+    },
+    {
+      "id": "zone_drone_bay",
+      "name": "Drone Bay",
+      "type": "custom",
+      "polygon": [
+        [
+          13.2,
+          19.6
+        ],
+        [
+          23.3,
+          19.6
+        ],
+        [
+          23.3,
+          22.6
+        ],
+        [
+          13.2,
+          22.6
+        ]
+      ]
+    },
+    {
+      "id": "zone_corridor_slow",
+      "name": "Narrow Corridor",
+      "type": "slow",
+      "speed_limit": 0.5,
+      "layer": "ground",
+      "polygon": [
+        [
+          19.0,
+          5.6
+        ],
+        [
+          21.0,
+          5.6
+        ],
+        [
+          21.0,
+          13.9
+        ],
+        [
+          19.0,
+          13.9
+        ]
+      ]
+    }
+  ],
+  "metadata": {
+    "source": "config/maps/warehouse_demo.json",
+    "units": "m"
+  }
+}
