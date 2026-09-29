@@ -253,7 +253,7 @@ Or use the operator UI at **http://localhost:8000/**.
 | Agent API            | `curl http://localhost:8080/health`           | `{"status":"ok"}`                |
 | Agent readiness      | `curl http://localhost:8080/readiness`        | All checks green                 |
 | Isaac Sim bridge     | `curl http://localhost:8211/health`           | `{"isaac_available":true,...}` |
-| Unit tests           | `pytest`                                      | 229 passed                       |
+| Unit tests           | `pytest`                                      | 230 passed                       |
 | UI build             | `cd web && npm ci && npm run build`           | typecheck + build succeed        |
 | Linter               | `ruff check nayantra tests scripts`           | no errors                        |
 

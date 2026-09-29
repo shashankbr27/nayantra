@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from nayantra.core import api as core_api
+from nayantra.core import fleet as core_fleet
 from nayantra.core.runtime import NayantraCore
 from nayantra.core.server import create_app
 
@@ -168,6 +169,23 @@ def test_vertical_slice_register_to_completion(client):
     types = {e["type"] for e in trace["events"]}
     assert {"TASK_CREATED", "ROBOT_TASK_ASSIGNED", "ROBOT_TASK_COMPLETED"} <= types, types
     assert trace["origin"]["source"] == "operator"
+
+
+def test_robot_state_is_current_when_its_task_completes(monkeypatch):
+    # Freeze the telemetry loop: whatever the API shows at completion came from the executor.
+    monkeypatch.setattr(core_fleet, "TELEMETRY_PERIOD_S", 3600.0)
+    core = NayantraCore(db_path=":memory:", scenario="warehouse_demo")
+    with TestClient(create_app(core)) as c:
+        c.patch("/api/v1/sim", json={"speed": 8.0})
+        wait_for(lambda: all(rt.state.online for rt in core.fleet.runtimes.values()), 5)
+        r = c.post(
+            "/api/v1/robots/ugv_01/navigate", headers=UI, json={"waypoint": "Storage Rack C"}
+        )
+        assert r.status_code == 201, r.text
+        wait_for(lambda: task_status(c, r.json()["id"]) == "completed", 40)
+        st = c.get("/api/v1/robots/ugv_01").json()["state"]
+        assert (round(st["pose"]["x"], 2), round(st["pose"]["y"], 2)) == (35.0, 19.5), st["pose"]
+        assert st["current_waypoint"] == "ST3" and st["current_task_id"] is None, st
 
 
 def test_delivery_is_allocated_by_capability(client):

@@ -479,6 +479,11 @@ class FleetManager:
                     rt.state.destination = None
                     self.traffic.set_busy(rt.robot_id, False)
                     self.traffic.profiles[rt.robot_id] = self._profile(rt.robot_id)
+                    # The task just ended: publish the pose it ended at, not the last telemetry tick's
+                    try:
+                        self._update_state(rt)
+                    except Exception:  # noqa: BLE001
+                        logger.exception(f"state refresh failed for {rt.robot_id}")
 
     async def _execute(self, rt: RobotRuntime, task: Task) -> None:
         self.tasks.transition(task, S.PLANNING, "Planning route")
