@@ -29,8 +29,7 @@ makes every allocation, routing, traffic and safety decision:
 > **Relationship to Open-RMF.** Nayantra borrows vocabulary (nav graph,
 > lane, reservation) and is **not** Open-RMF: it does not run `rmf_traffic`
 > and does not need Open-RMF anywhere in the path. A real Open-RMF server
-> remains available as optional infrastructure (`OPENRMF_INFRA_TOOLS=true`);
-> see [How this differs from Open-RMF](#-how-this-differs-from-open-rmf).
+> remains available as optional infrastructure (`OPENRMF_INFRA_TOOLS=true`).
 >
 > The MCP server is a REST transport built around MCP tool semantics
 > (`/tools`, `/run`, `/sse`). It is not the MCP JSON-RPC wire protocol.
@@ -92,19 +91,6 @@ Why this shape:
 - **Robots keep their own local autonomy.** Obstacle avoidance and control
   stay in Nav2 (or the vendor stack). The core decides *where and when*, not
   *how*.
-
-### 🔀 How this differs from Open-RMF
-
-| | Open-RMF | Nayantra |
-|---|---|---|
-| **Layer** | ROS 2 middleware; fleet adapters live inside its graph | Control plane *above* the robots; ROS 2 is one adapter family |
-| **Entry point** | Task requests from the RMF API / dashboard | Operator clicks **or** natural language, both compiled to tasks by typed tools |
-| **Allocation** | Bidding between fleet adapters | Central allocator that returns a readable why-this-robot trace |
-| **Map & world** | Building maps and traffic-editor YAML | One editable world model (maps, lanes, zones, fleets) with integrity checks |
-| **Safety** | Traffic negotiation | Independent safety kernel; the LLM path can never confirm dangerous actions |
-| **Airspace** | Ground-centric | Altitude layers for UAVs in the same planner |
-| **Requires ROS 2** | Yes | No (only for ROS 2 adapters) |
-| **Together** | | Open-RMF can be attached as optional infrastructure |
 
 Deep dives:
 
