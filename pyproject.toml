@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name            = "nayantra"
 version         = "2.0.0"
-description     = "Nayantra — multi-fleet robot orchestration: control plane, traffic coordination, operator UI, and LLM/MCP operator interface"
+description     = "Nayantra — agentic operations platform for heterogeneous robot fleets: control plane, traffic coordination, operator UI, and LLM/MCP operator interface"
 readme          = "README.md"
 license         = { file = "LICENSE" }
 requires-python = ">=3.11"

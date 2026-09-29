@@ -26,6 +26,12 @@
 # abort under nounset. We guard our own ${VAR:-} expansions explicitly instead.
 set -eo pipefail
 
+# Jazzy (Ubuntu 24.04) or Humble (22.04): use whichever is installed, Jazzy first.
+if [ -z "${ROS_SETUP:-}" ]; then
+  for d in jazzy humble; do
+    [ -f "/opt/ros/$d/setup.bash" ] && ROS_SETUP="/opt/ros/$d/setup.bash" && break
+  done
+fi
 ROS_SETUP="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RVIZ_CONFIG="${RVIZ_CONFIG:-$REPO_ROOT/config/nayantra.rviz}"

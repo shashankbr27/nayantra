@@ -12,13 +12,19 @@
 #
 #   bash scripts/run_demo.sh check                  # verify ROS 2 / Nav2 / topics
 #
-# Override env: VENV (isaacsim venv dir), ROS_SETUP, PUBLIC_IP, ROS_DOMAIN_ID.
+# Override env: VENV (isaacsim venv dir), ROS_SETUP (default: Jazzy, else Humble), PUBLIC_IP, ROS_DOMAIN_ID.
 # =============================================================================
 set -eo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 VENV="${VENV:-$HOME/or_sig/isaacsim-env}"
+# Jazzy (Ubuntu 24.04) or Humble (22.04): use whichever is installed, Jazzy first.
+if [ -z "${ROS_SETUP:-}" ]; then
+  for d in jazzy humble; do
+    [ -f "/opt/ros/$d/setup.bash" ] && ROS_SETUP="/opt/ros/$d/setup.bash" && break
+  done
+fi
 ROS_SETUP="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
 export PUBLIC_IP="${PUBLIC_IP:-172.25.61.209}"
@@ -54,8 +60,8 @@ case "$cmd" in
     src_ros
     command -v ros2 >/dev/null || { err "ros2 not found"; exit 1; }
     ros2 pkg prefix nav2_bringup >/dev/null 2>&1 || {
-      err "nav2_bringup not installed. Install Nav2 for Jazzy:"
-      err "  sudo apt install ros-jazzy-navigation2 ros-jazzy-nav2-bringup"
+      err "nav2_bringup not installed. Install Nav2 for ${ROS_DISTRO:-jazzy}:"
+      err "  sudo apt install ros-${ROS_DISTRO:-jazzy}-navigation2 ros-${ROS_DISTRO:-jazzy}-nav2-bringup"
       exit 1
     }
     log "Launching Nav2 + TF (map->odom static, odom->base_link from /odom, base_link->lidar)."
@@ -91,7 +97,7 @@ case "$cmd" in
     src_ros
     log "ROS_DISTRO=${ROS_DISTRO:-?}  ROS_DOMAIN_ID=$ROS_DOMAIN_ID"
     printf "  ros2:        "; command -v ros2 >/dev/null && echo OK || echo MISSING
-    printf "  nav2_bringup:"; ros2 pkg prefix nav2_bringup >/dev/null 2>&1 && echo " OK" || echo " MISSING (apt install ros-jazzy-nav2-bringup)"
+    printf "  nav2_bringup:"; ros2 pkg prefix nav2_bringup >/dev/null 2>&1 && echo " OK" || echo " MISSING (apt install ros-${ROS_DISTRO:-jazzy}-nav2-bringup)"
     printf "  rviz2:       "; command -v rviz2 >/dev/null && echo OK || echo MISSING
     log "Live topics (need isaac running):"
     ros2 topic list 2>/dev/null | grep -E '^/(clock|odom|cmd_vel|scan|tf|tf_static)$' || echo "  (start: run_demo.sh isaac)"

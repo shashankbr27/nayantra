@@ -56,7 +56,7 @@ def create_app(core: NayantraCore | None = None, start_core: bool = True) -> Fas
     app = FastAPI(
         title="Nayantra Core",
         version=VERSION,
-        description="Multi-fleet robot orchestration control plane (Nayantra-native, Open-RMF-inspired).",
+        description="Agentic operations control plane for heterogeneous robot fleets (Nayantra-native).",
         lifespan=lifespan,
     )
     app.state.core = core

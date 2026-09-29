@@ -8,15 +8,19 @@ Per robot, under its namespace (e.g. "/ugv_01" → "/ugv_01/odom"):
               battery_state   sensor_msgs/BatteryState       (optional)
   actions     navigate_through_poses  nav2_msgs/NavigateThroughPoses (preferred)
               navigate_to_pose        nav2_msgs/NavigateToPose       (fallback)
-  publishes   cmd_vel         geometry_msgs/Twist — ONLY a zero twist on
-                              emergency stop (safety controller). Motion is
+  publishes   cmd_vel         geometry_msgs/Twist or TwistStamped (matched to
+                              the robot, see ros_compat) — ONLY a zero twist
+                              on emergency stop (safety controller). Motion is
                               always delegated to Nav2; nothing upstream can
                               command velocities.
 
 Pose: TF map→base_frame when available, else odometry (valid when map→odom
 is identity, as in scripts/nav2_demo.launch.py).
 
-Status: written against the rclpy / nav2_msgs (Jazzy) APIs but NOT yet run
+ROS 2 Humble and Jazzy are both supported (ros_compat.py); the connection test
+reports which distro is sourced.
+
+Status: written against the rclpy / nav2_msgs APIs but NOT yet run
 against a live Nav2 stack (CI and the dev laptop have no ROS 2). Validate on
 the Isaac + Nav2 workstation before relying on it; the connection test
 reports each interface separately to make that bring-up quick.
@@ -27,9 +31,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import os
 import time
 from typing import Any
 
+from nayantra.core.adapters import ros_compat
 from nayantra.core.adapters.base import AdapterSnapshot, CheckResult, RobotAdapter
 from nayantra.core.adapters.ros2_runtime import Ros2Runtime
 from nayantra.core.models import EffectiveRobotConfig, Pose, Robot, RobotHealth, Velocity
@@ -70,6 +76,7 @@ class Nav2Adapter(RobotAdapter):
         self._goal_task: asyncio.Task | None = None
         self._goal_seq = 0
         self._use_through = False
+        self._stamped = False
 
     # ------------------------------------------------------------------
     def _topic(self, name: str) -> str:
@@ -89,10 +96,12 @@ class Nav2Adapter(RobotAdapter):
                     "same ROS_DOMAIN_ID as the robot.",
                 )
             ]
+        distro_ok, distro_detail = ros_compat.distro_support(ros_compat.ros_distro())
         checks = [
             CheckResult(
                 "ROS 2 available", True, f"node /nayantra_core, ROS_DOMAIN_ID={rt.domain_id}"
-            )
+            ),
+            CheckResult("ROS 2 distribution", distro_ok, distro_detail, required=False),
         ]
         try:
             self._create_interfaces(rt)
@@ -181,7 +190,7 @@ class Nav2Adapter(RobotAdapter):
         return checks
 
     def _create_interfaces(self, rt: Ros2Runtime) -> None:
-        from geometry_msgs.msg import Twist  # type: ignore
+        from geometry_msgs.msg import Twist, TwistStamped  # type: ignore
         from nav2_msgs.action import NavigateThroughPoses, NavigateToPose  # type: ignore
         from nav_msgs.msg import Odometry  # type: ignore
         from rclpy.action import ActionClient  # type: ignore
@@ -205,8 +214,24 @@ class Nav2Adapter(RobotAdapter):
             self._through = ActionClient(
                 node, NavigateThroughPoses, self._topic("navigate_through_poses")
             )
-            self._cmd_pub = node.create_publisher(Twist, self._topic("cmd_vel"), 10)
+            cmd_topic = self._topic("cmd_vel")
+            try:
+                seen = [
+                    t
+                    for name, ts in node.get_topic_names_and_types()
+                    if name == cmd_topic
+                    for t in ts
+                ]
+            except Exception:  # noqa: BLE001
+                seen = []
+            self._stamped = ros_compat.use_stamped_cmd_vel(
+                seen, os.getenv("NAYANTRA_CMD_VEL_STAMPED")
+            )
+            self._cmd_pub = node.create_publisher(
+                TwistStamped if self._stamped else Twist, cmd_topic, 10
+            )
         self._Twist = Twist
+        self._TwistStamped = TwistStamped
         self._NavToPose = NavigateToPose
         self._NavThrough = NavigateThroughPoses
 
@@ -403,10 +428,18 @@ class Nav2Adapter(RobotAdapter):
         if self._cmd_pub is not None:
             for _ in range(3):
                 try:
-                    self._cmd_pub.publish(self._Twist())
+                    self._cmd_pub.publish(self._zero_cmd())
                 except Exception:  # noqa: BLE001
                     break
                 await asyncio.sleep(0.05)
+
+    def _zero_cmd(self) -> Any:
+        if not self._stamped:
+            return self._Twist()
+        msg = self._TwistStamped()
+        msg.header.frame_id = self.base_frame
+        msg.header.stamp = self._rt.node.get_clock().now().to_msg()
+        return msg
 
     async def release_estop(self) -> None:
         self.estop = False

@@ -1,7 +1,7 @@
 # Contributing to Nayantra
 
-Thanks for your interest in contributing. Nayantra is an LLM-powered robot
-navigation framework built on Open-RMF, MCP, ROS 2, and Isaac Sim — there are
+Thanks for your interest in contributing. Nayantra is an agentic operations
+platform for robot fleets built on MCP, ROS 2 (Humble and Jazzy), and Isaac Sim 6.0+ — there are
 plenty of areas to help with, from adding new MCP tools to expanding the
 Isaac Sim integration to documentation.
 
@@ -18,7 +18,7 @@ Isaac Sim integration to documentation.
 ## Development setup
 
 Nayantra is designed so the whole stack runs on a laptop with no GPU, no real
-robot, and no Open-RMF server — that's the **stub-everything** mode.
+robot, and no Open-RMF server (the test suite uses an in-process robot fixture).
 
 ```bash
 git clone https://github.com/shashankbr27/nayantra.git

@@ -20,7 +20,7 @@ NVIDIA Isaac Sim. Total time on a properly-spec'd machine: **~30 minutes**
 | NVIDIA driver    | 535.x +  | Required for RTX acceleration                                |
 | Python           | 3.11+    | For the agent stack                                          |
 | Git              | any      | To clone the repo                                            |
-| Isaac Sim        | 4.0 +    | Install via [Omniverse Launcher](https://www.nvidia.com/omniverse/) |
+| Isaac Sim        | 6.0 +    | pip (`scripts/install_isaac_pip.sh`) or the NGC container |
 | Docker (optional)| 24+      | If you want the full compose stack                           |
 
 ### LLM access
@@ -133,7 +133,7 @@ bash scripts/stop.sh
 
 ### 4.1 Launch Isaac Sim
 
-Open Isaac Sim from the Omniverse Launcher.
+Start Isaac Sim 6.0+ (`bash scripts/run_demo.sh isaac`, or from the Isaac Sim app).
 
 ### 4.2 Enable the ROS 2 Bridge extension
 

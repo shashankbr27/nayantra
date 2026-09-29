@@ -23,8 +23,8 @@ robot enters the picture, switch the visualization to RViz.
 
 ## Prerequisites
 
-- **ROS 2 Humble** (or newer) sourced in the terminal you launch RViz from
-  - Ubuntu 22.04: `sudo apt install ros-humble-rviz2`
+- **ROS 2 Humble or Jazzy** sourced in the terminal you launch RViz from
+  - Ubuntu 22.04: `sudo apt install ros-humble-rviz2`; Ubuntu 24.04 (Jazzy): `sudo apt install ros-jazzy-rviz2`
   - Windows: run RViz inside a WSL2 Ubuntu environment (native ROS 2 on
     Windows works but is fragile; WSL2 is the path of least pain)
 - For real robots: a working **Nav2** stack publishing the standard topics
@@ -44,7 +44,7 @@ robot enters the picture, switch the visualization to RViz.
    machine on the same `ROS_DOMAIN_ID`):
 
    ```bash
-   source /opt/ros/humble/setup.bash
+   source /opt/ros/${ROS_DISTRO:-jazzy}/setup.bash   # or /opt/ros/humble/
    ros2 topic list      # confirm /tf, /map, /scan, /odom are visible
    rviz2 -d $(pwd)/docs/nayantra.rviz   # optional preset, see below
    ```

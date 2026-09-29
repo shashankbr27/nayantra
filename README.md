@@ -1,30 +1,36 @@
-# 🤖 Nayantra — Multi-Fleet Robot Orchestration
+# 🤖 Nayantra — Agentic Operations Platform for Heterogeneous Robot Fleets
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)](https://www.python.org/)
-[![ROS 2 Humble](https://img.shields.io/badge/ROS2-Humble-orange.svg)](https://docs.ros.org/en/humble/)
-[![Isaac Sim 4.x](https://img.shields.io/badge/Isaac%20Sim-4.x-brightgreen.svg)](https://developer.nvidia.com/isaac-sim)
+[![ROS 2 Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-orange.svg)](https://docs.ros.org/)
+[![Isaac Sim 6.0+](https://img.shields.io/badge/Isaac%20Sim-6.0%2B-brightgreen.svg)](https://developer.nvidia.com/isaac-sim)
 
-> **Natural language → LLM agent → MCP tools → Nayantra Core (fleets · tasks · traffic · safety) → robot adapters → simulated / Nav2 / Isaac robots**
+> **Say what you want done. Nayantra decides who does it, which way they go, and whether it is safe, then explains why.**
 
-Nayantra is a web-based platform for running several heterogeneous robot
-fleets (ground vehicles, drones, quadrupeds, humanoids) on one shared map.
-Operators work in a mission-control UI or give plain-English commands. The
-**Nayantra Core** owns the world model and decides which robot does what,
-which route it takes, and when it may move:
+Nayantra is a control plane for running several robot fleets (ground
+vehicles, drones, quadrupeds, humanoids) on one shared map. It sits **above**
+the robots' own navigation stacks. Operators work in a mission-control UI or
+give plain-English commands. The **Nayantra Core** owns the world model and
+makes every allocation, routing, traffic and safety decision:
 
-- **Task allocation** is done by the core's task manager, not by the LLM.
-  Every choice comes with an explanation of why that robot was picked.
-- **Traffic coordination** is predictive. Routes are planned in space and
-  time over a nav graph of waypoints and lanes, with reservations,
-  conflict detection and negotiation.
-- **Safety** does not depend on the LLM. Zones and emergency stops are
-  enforced in the core, and the LLM never sends velocity commands.
+- **Agent-native.** The LLM talks to typed, risk-tagged tools that create
+  *tasks*. It never sends velocities, and it can never confirm a dangerous
+  action. That is a property of the tool layer, not of the prompt.
+- **Explainable allocation.** The core's task manager, not the LLM, picks the
+  robot. Every choice carries a trace of the candidates it weighed and why
+  the winner won.
+- **Safety independent of intelligence.** A safety kernel enforces zones,
+  speed caps and emergency stops in the core. It does not consult the LLM,
+  the allocator or the traffic planner.
+- **Stack-agnostic.** A robot is anything that can follow a cleared path and
+  report progress. Nav2 on ROS 2 (Humble or Jazzy), Isaac Sim 6.0+, and
+  vendor or custom stacks all plug in through one adapter contract.
 
-> **Honest naming.** The core is *inspired by* Open-RMF: nav graphs,
-> lanes, reservations and negotiation. It is **not** Open-RMF and does not
-> run `rmf_traffic`. A real Open-RMF server is still supported as optional
-> infrastructure (`OPENRMF_INFRA_TOOLS=true`).
+> **Relationship to Open-RMF.** Nayantra borrows vocabulary (nav graph,
+> lane, reservation) and is **not** Open-RMF: it does not run `rmf_traffic`
+> and does not need Open-RMF anywhere in the path. A real Open-RMF server
+> remains available as optional infrastructure (`OPENRMF_INFRA_TOOLS=true`);
+> see [How this differs from Open-RMF](#-how-this-differs-from-open-rmf).
 >
 > The MCP server is a REST transport built around MCP tool semantics
 > (`/tools`, `/run`, `/sse`). It is not the MCP JSON-RPC wire protocol.
@@ -33,38 +39,77 @@ which route it takes, and when it may move:
 
 ## 📐 Architecture
 
+Three planes with one rule: **intent flows down, state flows up, and only the
+core decides.**
+
 ```
- Operator UI (React, :8000/)          Natural language (CLI · UI command bar)
-        │  REST /api/v1 + WebSocket             │
-        │                                        ▼
-        │                         Agent API (:8080) — Claude / GPT / Gemini
-        │                         think → act → observe loop
-        │                                        │ tool calls
-        │                                        ▼
-        │                         MCP server (:7000) — schema-validated,
-        │                         risk-tagged tools; can never confirm
-        │                         dangerous actions
-        ▼                                        │ REST
-┌────────────────────────────────────────────────┴──────────────────────┐
-│ Nayantra Core (:8000)                                                  │
-│  World registry — maps, waypoints, lanes, zones, fleets, robots        │
-│  Task manager   — explicit state machine, allocation + explanations    │
-│  Traffic        — space-time planning, reservations, conflict          │
-│                   negotiation, deadlock detection                      │
-│  Fleet manager  — per-robot executors, charging, zone monitor          │
-│  Safety guard · confirmations · event bus · SQLite store               │
-└───────────────┬───────────────────────┬───────────────────────┬───────┘
-                │                       │                       │
-         SimAdapter              Nav2Adapter (ROS 2)     IsaacDemoAdapter
-     (built-in kinematic      (rclpy, see status below)  (HTTP → Isaac Sim)
-         simulator)
+ INTENT PLANE — who asks, and how
+ ┌───────────────────────────────────────────────────────────────────────┐
+ │  Operator UI (React, :8000/)        Natural language (CLI · command bar)│
+ │  REST /api/v1 + WebSocket                   │                          │
+ │        │                         Agent API (:8080)  Claude·GPT·Gemini  │
+ │        │                         think → act → observe                 │
+ │        │                                    │ tool calls               │
+ │        │                         MCP server (:7000)                    │
+ │        │                         schema-validated, risk-tagged tools;  │
+ │        │                         cannot confirm dangerous actions      │
+ └────────┼────────────────────────────────────┼─────────────────────────┘
+          │  tasks, not velocities             │
+ ORCHESTRATION PLANE — Nayantra Core (:8000), the only place decisions are made
+ ┌────────▼────────────────────────────────────▼─────────────────────────┐
+ │  World model     maps · waypoints · lanes · zones · fleets · robots    │
+ │        │            (single source of truth, SQLite)                   │
+ │  Task manager ──► Allocator (capability · reach · battery · cost,      │
+ │        │            returns an explanation)                            │
+ │        └───────► Traffic coordinator (space-time reservations,         │
+ │                     conflict negotiation, deadlock detection)          │
+ │  Safety kernel    zones · speed caps · e-stop · confirmation gate      │
+ │  Event bus        audit trail, alerts, WebSocket fan-out               │
+ └───────────────────────────────┬───────────────────────────────────────┘
+                                 │  cleared path in  ▼   ▲  pose, battery, progress out
+ EMBODIMENT PLANE — Robot adapter contract (nayantra/core/adapters/)
+ ┌───────────────────────────────▼───────────────────────────────────────┐
+ │  Nav2Adapter (ROS 2 Humble | Jazzy)     IsaacDemoAdapter (HTTP)        │
+ │  vendor / custom adapters (same contract)                              │
+ └──────────┬───────────────────────────────────────┬────────────────────┘
+            │ LAN: ROS 2 DDS                        │ multi-site: Zenoh bridge
+   ┌────────▼─────────┐                    ┌────────▼─────────┐
+   │ Isaac Sim 6.0+   │                    │ Physical robots  │
+   │ (Nav2 + ROS 2    │                    │ (Nav2 + hardware)│
+   │  Bridge)         │                    └──────────────────┘
+   └──────────────────┘
 ```
+
+Why this shape:
+
+- **Decisions live in one place.** The UI, the LLM and the CLI all produce
+  the same object, a task. There is no second path to a robot.
+- **The adapter contract is narrow.** The core hands an adapter a path it has
+  already cleared with the traffic coordinator and extends it lane by lane.
+  The adapter drives it with whatever the robot has and reports progress.
+  Fields an adapter cannot measure stay empty and the UI shows them as "not
+  reported".
+- **Robots keep their own local autonomy.** Obstacle avoidance and control
+  stay in Nav2 (or the vendor stack). The core decides *where and when*, not
+  *how*.
+
+### 🔀 How this differs from Open-RMF
+
+| | Open-RMF | Nayantra |
+|---|---|---|
+| **Layer** | ROS 2 middleware; fleet adapters live inside its graph | Control plane *above* the robots; ROS 2 is one adapter family |
+| **Entry point** | Task requests from the RMF API / dashboard | Operator clicks **or** natural language, both compiled to tasks by typed tools |
+| **Allocation** | Bidding between fleet adapters | Central allocator that returns a readable why-this-robot trace |
+| **Map & world** | Building maps and traffic-editor YAML | One editable world model (maps, lanes, zones, fleets) with integrity checks |
+| **Safety** | Traffic negotiation | Independent safety kernel; the LLM path can never confirm dangerous actions |
+| **Airspace** | Ground-centric | Altitude layers for UAVs in the same planner |
+| **Requires ROS 2** | Yes | No (only for ROS 2 adapters) |
+| **Together** | | Open-RMF can be attached as optional infrastructure |
 
 Deep dives:
 
-- [docs/platform_architecture.md](docs/platform_architecture.md): the
-  multi-fleet design, its decisions, traffic coordination and the migration
-  plan.
+- [docs/platform_architecture.md](docs/platform_architecture.md): the design,
+  its decisions, traffic coordination and the migration plan.
 - [docs/architecture.md](docs/architecture.md): components, security model
   and extension guide.
 
@@ -79,17 +124,16 @@ Deep dives:
 | 📋 **Tasks** | Navigate, delivery, patrol, inspection, charge and more. Statuses run from `QUEUED` to `COMPLETED`, `FAILED` or `CANCELLED`, and every task carries a "why is it waiting" reason. Allocation weighs capability, map, layer, payload, reachability, battery, queue and cost, and returns a readable trace. |
 | 🚦 **Traffic** | Prioritized space-time (SIPP) planning over a reservation table. An execution order graph keeps robots deadlock-free when they are delayed. Conflicts are classified (head-on, intersection, bottleneck, …) and resolved by delay, reroute, priority, make-way or joint re-planning. Airspace is split into altitude layers for UAVs. |
 | 🛡 **Safety** | Forbidden-zone enforcement, speed caps and a forward stop zone in the simulator. Emergency stop works per robot, per fleet or for everything. Dangerous commands need operator confirmation, which the MCP/LLM path can never give. |
-| 🖥 **Operator UI** | Mission-control dashboard: an interactive map (zoom, pan, layers, selection, live robot poses), fleet overview, robot command center, task composer and drawer, traffic and conflict view, alerts and events, map/graph editor, and simulation Start/Pause/Stop. Dark and light themes. |
+| 🖥 **Operator UI** | Mission-control dashboard: an interactive map (zoom, pan, layers, selection, live robot poses), fleet overview, robot command center, task composer and drawer, traffic and conflict view, alerts and events, map/graph editor, and Start/Pause/Stop for simulated fleets. Dark and light themes. |
 | 🧠 **Natural language** | Provider-agnostic agent (Anthropic / OpenAI / Gemini) that uses about 25 high-level tools. It creates tasks and never drives robots directly. Commands are traced end to end (mission → command → tool → task). |
-| 🔌 **Adapters** | One adapter interface. Implementations: the built-in simulator, Nav2 over ROS 2, and the Isaac demo over HTTP. Protocols that aren't implemented are registered but fail their connection test with an explicit reason. |
+| 🔌 **Adapters** | One adapter interface. Implementations: Nav2 over ROS 2 (Humble and Jazzy) and the Isaac demo over HTTP. Protocols that aren't implemented are registered but fail their connection test with an explicit reason. |
 | 🔁 **Compatibility** | The old rmf-web-shaped routes (`/fleets`, `/tasks/dispatch_task`, `/building_map` …) are still served, backed by the core. `python -m nayantra.rmf_bridge.server` still starts a single-robot setup. |
 
 **Implementation status**
 
-- The **built-in simulator** path is exercised end to end by the test suite.
-  The chain is register robot → fleet → map → task → allocation → traffic →
-  navigation → completion, driven both through the REST API and through the
-  NL agent with a scripted LLM.
+- The orchestration chain (register robot → fleet → map → task → allocation →
+  traffic → navigation → completion) is exercised end to end by the test
+  suite, through the REST API and through the NL agent with a scripted LLM.
 - The **Nav2 adapter** has not yet been run against a live Nav2 stack.
 - **Multi-robot Isaac Sim** is not wired up. The Isaac demo adapter drives
   the single carter_v1 demo robot.
@@ -104,12 +148,15 @@ Deep dives:
 |---|---|---|
 | Python | 3.11+ | everything |
 | Node.js | 20.19+ / 22.12+ | building the operator UI (once) |
+| NVIDIA Isaac Sim | 6.0+ | the Isaac demo (RTX GPU) |
+| ROS 2 | Humble (Ubuntu 22.04) or Jazzy (Ubuntu 24.04) | Nav2 robots |
+| Nav2 | `ros-<distro>-navigation2`, `ros-<distro>-nav2-bringup` | Nav2 robots |
 | Docker + Compose | latest | *optional* container stack |
-| NVIDIA Isaac Sim | 4.x | *optional* Isaac demo |
-| ROS 2 | Humble | *optional* Nav2 robots |
 
-No GPU, ROS 2 or LLM key is needed to run the core, the UI and the
-simulated warehouse demo.
+The core, the UI and the test suite need no GPU, ROS 2 or LLM key. ROS 2
+adapters need the core started from a shell where ROS 2 is sourced
+(`source /opt/ros/<distro>/setup.bash`) on the same `ROS_DOMAIN_ID` as the
+robots. The connection test reports which distro it found.
 
 ### 1. Install
 
@@ -123,18 +170,18 @@ cp config/.env.example config/.env   # add ANTHROPIC_API_KEY / OPENAI_API_KEY / 
 ### 2. Build the UI and start the core
 
 ```bash
-(cd web && npm ci && npm run build)   # once; the core serves web/dist
-nayantra-core                        # → http://localhost:8000/
+(cd web && npm ci && npm run build)          # once; the core serves web/dist
+nayantra-core --scenario isaac_carter        # → http://localhost:8000/
 ```
 
-On first start the core loads the **warehouse demo** scenario
-(`config/scenarios/warehouse_demo.json`): 4 fleets and 16 simulated robots
-on a warehouse map with a narrow corridor, a restricted high-voltage zone
-and UAV air lanes.
+The `isaac_carter` scenario (`config/scenarios/isaac_carter.json`) registers
+the carter_v1 robot of the Isaac Sim warehouse, driven through Nav2. Bring
+the robot side up as in [Isaac Sim Setup](#-isaac-sim-setup) below; the
+robot shows as online in the UI once its ROS 2 topics are discovered.
 
 Useful flags:
 
-- `--scenario isaac_carter` loads another scenario.
+- `--scenario NAME` loads another scenario from `config/scenarios/`.
 - `--db data/other.db` uses a different database.
 - `--reset` wipes the state and re-seeds.
 - `--port 8765` changes the port.
@@ -160,15 +207,15 @@ Or use Docker: `docker compose -f docker/docker-compose.yml up --build`.
 
 In the UI:
 
-1. Pick a waypoint on the map and create a delivery.
-2. Watch the allocation explanation.
-3. Watch the robots negotiate the corridor.
+1. Pick a waypoint on the map and create a navigate or delivery task.
+2. Read the allocation explanation.
+3. Watch the robot execute it on the live map (and in the Isaac Sim stream).
 
 From the CLI:
 
 ```bash
-nayantra "send two ground robots to deliver from Receiving Bay 1 to Storage Rack B"
-nayantra "why is ugv_03 waiting?"
+nayantra "take carter to the loading dock"
+nayantra "why is carter waiting?"
 nayantra "stop all robots"          # parked for operator confirmation in the UI
 ```
 
@@ -198,7 +245,7 @@ nayantra/
 │   │   ├── safety.py       # Zone / speed guard
 │   │   ├── confirmations.py
 │   │   ├── events.py       # Event bus + alerts
-│   │   ├── adapters/       # sim · nav2 (ROS 2) · isaac_demo · unsupported
+│   │   ├── adapters/       # nav2 (ROS 2 Humble/Jazzy) · isaac_demo · unsupported · sim (test fixture)
 │   │   ├── api.py · ws.py  # /api/v1 REST + WebSocket
 │   │   ├── legacy_rmf.py   # rmf-web-shaped compatibility routes
 │   │   └── server.py       # `nayantra-core`
@@ -209,7 +256,7 @@ nayantra/
 │   ├── isaac_sim/ · ros2_adapter/ · zenoh_bridge/ · api/
 ├── web/                    # Operator UI (React + TypeScript + Vite)
 ├── config/
-│   ├── maps/               # Map seeds (warehouse_demo, isaac_warehouse)
+│   ├── maps/               # Map seeds
 │   ├── scenarios/          # Fleet + robot seeds
 │   ├── .env.example
 │   └── tools.json          # Generated tool definitions
@@ -224,13 +271,19 @@ nayantra/
 
 ## 🎮 Isaac Sim Setup
 
-See [docs/getting_started.md](docs/getting_started.md) and [docs/isaac_sim_setup.md](docs/isaac_sim_setup.md) for the full guide.
+Requires **Isaac Sim 6.0 or newer**. See [docs/getting_started.md](docs/getting_started.md)
+and [docs/isaac_sim_setup.md](docs/isaac_sim_setup.md) for the full guide.
 
-**Quick summary:**
-1. Install Isaac Sim 4.x from NGC or Omniverse Launcher
-2. Enable the ROS 2 Bridge extension in Isaac Sim
-3. Run `scripts/isaac_sim_server.py` inside Isaac Sim's Script Editor
-4. Set `ISAAC_SIM_ENABLED=true` in `config/.env`
+**Quick summary** (three terminals on the GPU machine, same `ROS_DOMAIN_ID`):
+
+```bash
+bash scripts/run_demo.sh isaac    # Isaac Sim 6.0+: warehouse + carter_v1, /odom /scan /cmd_vel
+bash scripts/run_demo.sh nav2     # Nav2 + TF tree (Humble or Jazzy, auto-detected)
+nayantra-core --scenario isaac_carter
+```
+
+`bash scripts/run_demo.sh check` verifies ROS 2, Nav2 and the topics.
+`scripts/install_isaac_pip.sh` installs Isaac Sim 6.0 from pip without Docker.
 
 ---
 
@@ -242,15 +295,12 @@ right tool for sensor-level views: it subscribes to the standard `/tf`,
 fleet-level picture.
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/<humble|jazzy>/setup.bash
 rviz2
 ```
 
 Full setup, troubleshooting, and a recommended display list:
 [docs/rviz_setup.md](docs/rviz_setup.md).
-
-> With the built-in simulator there is no ROS 2 graph for RViz to
-> subscribe to. Use the operator UI's live map instead.
 
 ---
 
@@ -293,7 +343,8 @@ nayantra-token --subject admin --hours 240
 
 ```bash
 pip install -e ".[test]"
-pytest tests/ -v --cov=nayantra          # backend (no GPU / ROS 2 / LLM needed)
+pytest tests/ -v --cov=nayantra          # backend; needs no GPU, ROS 2 or LLM
+                                         # (robots are an in-process test fixture)
 (cd web && npm ci && npm run build)      # UI typecheck + build
 ```
 
