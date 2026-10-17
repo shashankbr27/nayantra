@@ -600,22 +600,47 @@ class FleetManager:
         }
         return taken
 
+    def claimed_targets(self, robot_id: str) -> set[str]:
+        """Nodes another robot has been sent to (planned or heading there), whether or not it has arrived."""
+        claimed = {plan.goal for rid, plan in self.traffic.plans.items() if rid != robot_id}
+        claimed |= {o.goal_node for rid, o in self.runtimes.items() if rid != robot_id and o.goal_node}
+        return claimed
+
     def _choose_candidate(self, rt: RobotRuntime, step, graph: MapGraph) -> str | None:
+        """Pick the destination for a "go to the nearest free X" step.
+
+        A free candidate wins. If every candidate has a robot parked on it but none is anyone's *destination*,
+        pick the cheapest of those anyway and let the traffic coordinator sort it out: it asks an idle robot
+        to make way, or plans a swap when the robot on it is itself waiting for this robot's spot (UGV-1 on
+        the receiving dock wants the charger, UGV-3 on the charger wants the dock). Sleeping instead leaves
+        the coordinator blind to the wait, and a swap deadlocks forever. A candidate another robot is heading
+        to, or working at, still counts as taken.
+        """
         layer = rt.adapter.config.layer
         taken = self.taken_targets(rt.robot_id)
+        claimed = self.claimed_targets(rt.robot_id)
         origin, _ = self.traffic.location(rt.robot_id)
         origin = origin or self.planning_origin(rt.robot_id)
         best = None
+        contested = None
         for c in step.candidates:
-            if c not in graph.nodes or graph.nodes[c].layer != layer or c in taken:
+            if c not in graph.nodes or graph.nodes[c].layer != layer:
                 continue
-            if origin == c:
+            if c in taken and c in claimed:
+                continue  # another robot is heading there or working there
+            if c not in taken and origin == c:
                 return c
             r = graph.plan_static(origin, c, self.profile_for(rt.robot_id)) if origin else None
             cost = r.time if r else math.inf
-            if best is None or cost < best[0]:
-                best = (cost, c)
-        return best[1] if best and best[0] < math.inf else None
+            if c not in taken:
+                if best is None or cost < best[0]:
+                    best = (cost, c)
+            elif contested is None or cost < contested[0]:
+                contested = (cost, c)
+        for pick in (best, contested):
+            if pick and pick[0] < math.inf:
+                return pick[1]
+        return None
 
     async def _go_to(self, rt: RobotRuntime, task: Task, i: int) -> str:
         step = task.steps[i]
