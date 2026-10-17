@@ -1,0 +1,150 @@
+<?xml version="1.0" ?>
+<!--
+  Differential-drive UGV for the Nayantra Gazebo warehouse. Rendered by the
+  launch file: @NAME@ becomes the robot's ROS namespace (ugv_01, ugv_02 ...), so
+  every topic below is /<name>/... and matches the Nav2 adapter's expectations.
+
+  Odometry is published in the WORLD frame (OdometryPublisher reports the
+  model's world pose), and the Gazebo world frame equals the Nayantra map
+  frame. That is what makes the static identity map -> odom transform correct
+  wherever a robot is spawned.
+-->
+<sdf version="1.9">
+  <model name="@NAME@">
+    <link name="base_link">
+      <pose>0 0 0.15 0 0 0</pose>
+      <inertial>
+        <mass>15</mass>
+        <inertia><ixx>0.3625</ixx><iyy>0.6625</iyy><izz>0.925</izz></inertia>
+      </inertial>
+      <collision name="collision"><geometry><box><size>0.7 0.5 0.2</size></box></geometry></collision>
+      <visual name="visual">
+        <geometry><box><size>0.7 0.5 0.2</size></box></geometry>
+        <material><ambient>0.1 0.5 0.9 1</ambient><diffuse>0.1 0.5 0.9 1</diffuse></material>
+      </visual>
+    </link>
+
+    <link name="left_wheel">
+      <pose relative_to="base_link">0 0.29 -0.05 -1.5707 0 0</pose>
+      <inertial>
+        <mass>1</mass>
+        <inertia><ixx>0.0028</ixx><iyy>0.0028</iyy><izz>0.005</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry><cylinder><radius>0.1</radius><length>0.06</length></cylinder></geometry>
+        <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="visual">
+        <geometry><cylinder><radius>0.1</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+    </link>
+    <link name="right_wheel">
+      <pose relative_to="base_link">0 -0.29 -0.05 -1.5707 0 0</pose>
+      <inertial>
+        <mass>1</mass>
+        <inertia><ixx>0.0028</ixx><iyy>0.0028</iyy><izz>0.005</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry><cylinder><radius>0.1</radius><length>0.06</length></cylinder></geometry>
+        <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="visual">
+        <geometry><cylinder><radius>0.1</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- Frictionless ball casters so the two drive wheels alone steer the base. -->
+    <link name="front_caster">
+      <pose relative_to="base_link">0.25 0 -0.10 0 0 0</pose>
+      <inertial>
+        <mass>0.5</mass>
+        <inertia><ixx>0.0005</ixx><iyy>0.0005</iyy><izz>0.0005</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry><sphere><radius>0.05</radius></sphere></geometry>
+        <surface><friction><ode><mu>0</mu><mu2>0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="visual"><geometry><sphere><radius>0.05</radius></sphere></geometry></visual>
+    </link>
+    <link name="rear_caster">
+      <pose relative_to="base_link">-0.25 0 -0.10 0 0 0</pose>
+      <inertial>
+        <mass>0.5</mass>
+        <inertia><ixx>0.0005</ixx><iyy>0.0005</iyy><izz>0.0005</izz></inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry><sphere><radius>0.05</radius></sphere></geometry>
+        <surface><friction><ode><mu>0</mu><mu2>0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="visual"><geometry><sphere><radius>0.05</radius></sphere></geometry></visual>
+    </link>
+
+    <!-- 2D lidar; the bridge republishes it as /@NAME@/scan in frame lidar_link. -->
+    <link name="lidar_link">
+      <pose relative_to="base_link">0.25 0 0.2 0 0 0</pose>
+      <inertial>
+        <mass>0.2</mass>
+        <inertia><ixx>0.0002</ixx><iyy>0.0002</iyy><izz>0.0002</izz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><cylinder><radius>0.04</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.9 0.1 0.1 1</ambient><diffuse>0.9 0.1 0.1 1</diffuse></material>
+      </visual>
+      <sensor name="lidar" type="gpu_lidar">
+        <topic>/@NAME@/scan</topic>
+        <gz_frame_id>lidar_link</gz_frame_id>
+        <update_rate>10</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>360</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+          </scan>
+          <range><min>0.12</min><max>10.0</max><resolution>0.01</resolution></range>
+        </lidar>
+      </sensor>
+    </link>
+
+    <joint name="left_wheel_joint" type="revolute">
+      <parent>base_link</parent><child>left_wheel</child>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+    <joint name="right_wheel_joint" type="revolute">
+      <parent>base_link</parent><child>right_wheel</child>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+    <joint name="front_caster_joint" type="ball"><parent>base_link</parent><child>front_caster</child></joint>
+    <joint name="rear_caster_joint" type="ball"><parent>base_link</parent><child>rear_caster</child></joint>
+    <joint name="lidar_joint" type="fixed"><parent>base_link</parent><child>lidar_link</child></joint>
+
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>0.58</wheel_separation>
+      <wheel_radius>0.1</wheel_radius>
+      <max_linear_velocity>1.0</max_linear_velocity>
+      <max_angular_velocity>2.0</max_angular_velocity>
+      <topic>/@NAME@/cmd_vel</topic>
+      <!-- Its integrated odometry starts at 0 wherever the robot spawns, so it
+           goes to unused topics; the world-frame publisher below is the one used. -->
+      <odom_topic>/@NAME@/diffdrive_odom_unused</odom_topic>
+      <tf_topic>/@NAME@/diffdrive_tf_unused</tf_topic>
+      <odom_publish_frequency>1</odom_publish_frequency>
+    </plugin>
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>odom</odom_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <odom_topic>/@NAME@/odom</odom_topic>
+      <tf_topic>/@NAME@/tf</tf_topic>
+      <odom_publish_frequency>30</odom_publish_frequency>
+      <dimensions>2</dimensions>
+    </plugin>
+  </model>
+</sdf>

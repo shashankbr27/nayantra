@@ -2,17 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, isConfirmation } from "../api/client";
 import type { Point2 } from "../api/types";
 import { BottomDock } from "../components/BottomDock";
-import { CommandBar } from "../components/CommandBar";
+import { ChatPanel } from "../components/ChatPanel";
 import { FleetSidebar } from "../components/FleetSidebar";
 import { Inspector } from "../components/Inspector";
 import { ConflictFlashes, MapChrome } from "../components/MapChrome";
 import { Empty } from "../components/ui";
 import { type MapControl, MapView } from "../map/MapView";
+import { useChat } from "../store/chat";
 import { useWorld } from "../store/world";
 import { errMsg } from "../lib/format";
 
 export function OperationsPage() {
   const s = useWorld();
+  const chatCollapsed = useChat((c) => c.collapsed);
   const map = s.activeMapId ? s.maps[s.activeMapId] : undefined;
   const control = useRef<MapControl | null>(null);
   const [cursor, setCursor] = useState<Point2 | null>(null);
@@ -114,11 +116,13 @@ export function OperationsPage() {
           <Empty>{s.loaded ? "No maps yet — create one in the Map editor." : "Connecting to Nayantra Core…"}</Empty>
         )}
         {map && <MapChrome control={control} cursor={cursor} pxPerM={pxPerM} />}
-        <CommandBar />
         <ConflictFlashes />
       </div>
-      <aside className="inspector">
-        <Inspector onFocus={(x, y) => control.current?.centerOn(x, y)} />
+      <aside className={`inspector with-chat${chatCollapsed ? " chat-collapsed" : ""}`}>
+        <div className="insp-scroll">
+          <Inspector onFocus={(x, y) => control.current?.centerOn(x, y)} />
+        </div>
+        <ChatPanel />
       </aside>
       <BottomDock />
     </div>

@@ -194,7 +194,7 @@ export function MapEditorPage() {
               <>
                 <label className="row"><input type="checkbox" className="cbx" checked={laneOpts.bidirectional} onChange={(e) => setLaneOpts({ ...laneOpts, bidirectional: e.target.checked })} /> Two-way</label>
                 <label className="row">Speed limit <input className="input" type="number" step="0.1" style={{ height: 24, width: 70 }} value={laneOpts.speed_limit || ""} placeholder="none" onChange={(e) => setLaneOpts({ ...laneOpts, speed_limit: Number(e.target.value) })} /> m/s</label>
-                {laneStart && <span style={{ color: "var(--accent)" }}>from {map.waypoints.find((w) => w.id === laneStart)?.name} → click next</span>}
+                {laneStart && <span style={{ color: "var(--accent-fg)" }}>from {map.waypoints.find((w) => w.id === laneStart)?.name} → click next</span>}
               </>
             )}
             {tool === "zone" && (

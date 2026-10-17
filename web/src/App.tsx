@@ -19,6 +19,10 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    // The browser tab follows the app's toggle, not just the OS: swap to the matching tile.
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]');
+    if (icon) icon.href = `/favicon-${theme}.svg`;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#000000" : "#ffffff");
   }, [theme]);
   useEffect(() => {
     connectWorld();

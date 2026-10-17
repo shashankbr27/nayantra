@@ -103,7 +103,9 @@ export function FleetSidebar() {
 function SimControls() {
   const sim = useWorld((s) => s.sim);
   const toast = useWorld((s) => s.toast);
-  if (!sim) return null;
+  // These controls drive the core's built-in simulator only. With no robots on it (Gazebo,
+  // Isaac Sim or hardware) they would control nothing, so they would only mislead.
+  if (!sim || sim.robots.length === 0) return null;
   const act = async (path: string, label: string) => {
     try {
       await api.post(path);

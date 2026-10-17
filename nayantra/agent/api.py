@@ -16,6 +16,7 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 
@@ -165,11 +166,20 @@ async def run_command(req: CommandRequest):
 
 
 @app.get("/stream")
-async def stream_command(command: str):
-    """Execute a command with Server-Sent Events streaming."""
+async def stream_command(command: str, history: str | None = None):
+    """Execute a command with Server-Sent Events streaming.
+
+    `history` is optional JSON: [{"role": "user"|"assistant", "text": "..."}] of earlier chat turns."""
     agent = await get_agent()
+    turns: list[dict] = []
+    if history:
+        try:
+            parsed = json.loads(history)
+            turns = [t for t in parsed if isinstance(t, dict)] if isinstance(parsed, list) else []
+        except ValueError:
+            turns = []
     return StreamingResponse(
-        agent.stream_run(command),
+        agent.stream_run(command, turns),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

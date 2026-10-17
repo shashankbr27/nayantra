@@ -214,7 +214,7 @@ export function TaskSummary({ task }: { task: Task }) {
       <div style={{ fontSize: 12.5 }}>
         {task.steps.map((s, i) => (
           <div key={i} className="row" style={{ gap: 6, opacity: s.status === "done" ? 0.55 : 1, fontWeight: i === task.current_step && isOpen(task.status) ? 600 : 400 }}>
-            <span style={{ width: 12, color: s.status === "done" ? "var(--ok)" : i === task.current_step ? "var(--accent)" : "var(--text-3)" }}>
+            <span style={{ width: 12, color: s.status === "done" ? "var(--ok)" : i === task.current_step ? "var(--accent-fg)" : "var(--text-3)" }}>
               {s.status === "done" ? "✓" : i === task.current_step && isOpen(task.status) ? "▸" : "·"}
             </span>
             <span className="ellipsis">{s.label}</span>
@@ -290,7 +290,7 @@ function WaypointPanel({ id }: { id: string }) {
     <div>
       <div className="insp-head">
         <div className="row between">
-          <div className="insp-title"><Route size={16} style={{ color: "var(--accent)" }} />{w.name}</div>
+          <div className="insp-title"><Route size={16} style={{ color: "var(--accent-fg)" }} />{w.name}</div>
           <button className="btn ghost icon sm" onClick={() => selectWaypoint(null)} aria-label="Close"><X size={14} /></button>
         </div>
         <div className="row" style={{ marginTop: 6, gap: 6 }}>

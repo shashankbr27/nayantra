@@ -11,7 +11,15 @@ import httpx
 import pytest_asyncio
 
 from nayantra.agent import agent as agent_mod
-from nayantra.agent.agent import Call, RMFAgent, Turn, _Provider, to_anthropic_tool, to_gemini_tool
+from nayantra.agent.agent import (
+    Call,
+    RMFAgent,
+    Turn,
+    _Provider,
+    to_anthropic_tool,
+    to_gemini_tool,
+    with_history,
+)
 from nayantra.core.runtime import NayantraCore
 from nayantra.core.server import create_app
 from nayantra.mcp import server as mcp_server
@@ -175,6 +183,40 @@ async def test_stream_emits_step_events(stack):
     assert done["success"] is True and done["summary"] == "Four fleets."
 
 
+async def test_chat_history_reaches_the_model_but_not_the_mission_record(stack):
+    provider = ScriptedProvider([Turn("Sent the other one too.", [], "end")])
+    agent = make_agent(provider)
+    history = [
+        {"role": "user", "text": "Send UGV-1 to the loading zone"},
+        {"role": "assistant", "text": "UGV-1 is on its way."},
+    ]
+    events = [chunk async for chunk in agent.stream_run("now the other one too", history)]
+    await agent.close()
+    assert "Send UGV-1 to the loading zone" in provider.command
+    assert "UGV-1 is on its way." in provider.command
+    assert provider.command.endswith("Current request: now the other one too")
+    assert "Sent the other one too." in events[-1]
+
+
+def test_with_history_is_a_no_op_without_history():
+    assert with_history("go", None) == "go"
+    assert with_history("go", []) == "go"
+    assert with_history("go", [{"role": "user", "text": "   "}]) == "go"
+
+
+def test_with_history_keeps_the_newest_turns_and_bounds_the_size():
+    history = [
+        {"role": "user" if i % 2 == 0 else "assistant", "text": f"message {i} " + "x" * 700}
+        for i in range(20)
+    ]
+    prompt = with_history("what now?", history)
+    assert "message 19" in prompt and "message 0 " not in prompt  # oldest dropped
+    assert len(prompt) < 3500  # 3000 chars of history plus the framing
+    assert prompt.index("message 18") < prompt.index("message 19")  # still oldest-first
+    assert prompt.endswith("Current request: what now?")
+    assert "Operator: message 18" in prompt and "Assistant: message 19" in prompt
+
+
 def test_tool_schema_conversion_keeps_required_and_flattens_for_gemini():
     tool = next(t for t in get_all_tools() if t["name"] == "create_task")
     a = to_anthropic_tool(tool)
@@ -183,3 +225,80 @@ def test_tool_schema_conversion_keeps_required_and_flattens_for_gemini():
     props = g["parameters"]["properties"]
     assert "anyOf" not in json.dumps(props) and props["destination"]["nullable"] is True
     assert agent_mod.SYSTEM_PROMPT and "create_task" in agent_mod.SYSTEM_PROMPT
+
+
+def test_every_tool_is_accepted_by_geminis_schema_model():
+    # One tool Gemini rejects (create_fleet's `gt=0` emitted exclusiveMinimum) fails EVERY
+    # command, because the whole tool list is sent with each request.
+    from google.genai import types
+
+    for tool in get_all_tools():
+        types.FunctionDeclaration.model_validate(to_gemini_tool(tool))
+
+
+def test_gemini_conversion_keeps_exclusive_bounds_in_the_description():
+    tool = next(t for t in get_all_tools() if t["name"] == "create_fleet")
+    speed = to_gemini_tool(tool)["parameters"]["properties"]["max_speed"]
+    assert "exclusiveMinimum" not in speed
+    assert "greater than 0" in speed["description"] and speed["maximum"] == 6
+
+
+def _gemini_provider(failures):
+    """A _GeminiProvider whose client raises the given errors, then answers "ok"."""
+    from types import SimpleNamespace
+
+    calls = []
+
+    async def generate_content(**kwargs):
+        calls.append(kwargs)
+        if len(calls) <= len(failures):
+            raise failures[len(calls) - 1]
+        return "ok"
+
+    prov = object.__new__(agent_mod._GeminiProvider)
+    prov.RETRY_DELAYS = (0, 0, 0)
+    prov.client = SimpleNamespace(
+        aio=SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+    )
+    return prov, calls
+
+
+def _gemini_error(cls, code):
+    return cls(code, {"error": {"code": code, "message": "x", "status": "X"}})
+
+
+async def test_gemini_retries_a_503_overload_then_succeeds():
+    from google.genai import errors
+
+    overload = _gemini_error(errors.ServerError, 503)
+    prov, calls = _gemini_provider([overload, overload])
+    assert await prov._generate(model="m") == "ok"
+    assert len(calls) == 3
+
+
+async def test_gemini_retries_a_429_rate_limit():
+    from google.genai import errors
+
+    prov, calls = _gemini_provider([_gemini_error(errors.ClientError, 429)])
+    assert await prov._generate(model="m") == "ok" and len(calls) == 2
+
+
+async def test_gemini_does_not_retry_a_bad_request():
+    import pytest
+    from google.genai import errors
+
+    prov, calls = _gemini_provider([_gemini_error(errors.ClientError, 400)])
+    with pytest.raises(errors.ClientError):
+        await prov._generate(model="m")
+    assert len(calls) == 1
+
+
+async def test_gemini_gives_up_after_the_last_retry():
+    import pytest
+    from google.genai import errors
+
+    overload = _gemini_error(errors.ServerError, 503)
+    prov, calls = _gemini_provider([overload] * 10)
+    with pytest.raises(errors.ServerError):
+        await prov._generate(model="m")
+    assert len(calls) == 4  # first try + three retries

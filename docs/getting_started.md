@@ -4,6 +4,11 @@ This guide walks you from a fresh clone to a working agent driving robots in
 NVIDIA Isaac Sim. Total time on a properly-spec'd machine: **~30 minutes**
 (plus Isaac Sim download time).
 
+> **Shortcut.** `./nayantra.sh setup` installs ROS 2, Nav2 and the simulator you choose
+> (Isaac Sim, Gazebo, or whichever suits the machine; `./nayantra.sh detect` shows which),
+> and `./nayantra.sh start` brings the whole stack up. See "Choosing a Simulator" in the
+> README. The steps below are the manual route, one piece at a time.
+
 ---
 
 ## 1. Prerequisites
@@ -253,7 +258,7 @@ Or use the operator UI at **http://localhost:8000/**.
 | Agent API            | `curl http://localhost:8080/health`           | `{"status":"ok"}`                |
 | Agent readiness      | `curl http://localhost:8080/readiness`        | All checks green                 |
 | Isaac Sim bridge     | `curl http://localhost:8211/health`           | `{"isaac_available":true,...}` |
-| Unit tests           | `pytest`                                      | 235 passed                       |
+| Unit tests           | `pytest`                                      | 310 passed                       |
 | UI build             | `cd web && npm ci && npm run build`           | typecheck + build succeed        |
 | Linter               | `ruff check nayantra tests scripts`           | no errors                        |
 
