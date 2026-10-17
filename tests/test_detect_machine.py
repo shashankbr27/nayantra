@@ -18,11 +18,29 @@ spec.loader.exec_module(dm)
 Gpu, Machine = dm.Gpu, dm.Machine
 
 # The RTX 6000 Ada workstation the Isaac Sim demo runs on.
-WORKSTATION = Machine("linux", "Ubuntu 24.04.2 LTS", "noble", False, 62.0, 32, 800.0, "/home/u",
-                      (Gpu("NVIDIA RTX 6000 Ada Generation", 47.99, "580.65.06"),))
+WORKSTATION = Machine(
+    "linux",
+    "Ubuntu 24.04.2 LTS",
+    "noble",
+    False,
+    62.0,
+    32,
+    800.0,
+    "/home/u",
+    (Gpu("NVIDIA RTX 6000 Ada Generation", 47.99, "580.65.06"),),
+)
 # The development laptop: Ubuntu under WSL2, RTX 3050 6 GB.
-WSL_LAPTOP = Machine("linux", "Ubuntu 24.04.5 LTS", "noble", True, 11.0, 12, 949.0, "/home/u",
-                     (Gpu("NVIDIA GeForce RTX 3050 6GB Laptop GPU", 6.0, "581.86"),))
+WSL_LAPTOP = Machine(
+    "linux",
+    "Ubuntu 24.04.5 LTS",
+    "noble",
+    True,
+    11.0,
+    12,
+    949.0,
+    "/home/u",
+    (Gpu("NVIDIA GeForce RTX 3050 6GB Laptop GPU", 6.0, "581.86"),),
+)
 
 
 def variant(base: Machine, **changes) -> Machine:
@@ -75,14 +93,22 @@ def test_a_card_just_under_the_minimum_is_a_caveat_not_a_refusal_and_is_not_reco
 
 
 def test_below_the_floor_is_refused():
-    assert dm.assess_isaac(variant(WORKSTATION, gpus=gpu_of("NVIDIA GeForce RTX 3050", 4.0))).level == "no"
+    assert (
+        dm.assess_isaac(variant(WORKSTATION, gpus=gpu_of("NVIDIA GeForce RTX 3050", 4.0))).level
+        == "no"
+    )
     assert dm.assess_isaac(variant(WORKSTATION, ram_gb=8.0)).level == "no"
     assert dm.assess_isaac(variant(WORKSTATION, disk_free_gb=10.0)).level == "no"
 
 
 def test_sizes_as_the_os_reports_them_still_count_as_the_nominal_size():
     # A 16 GB card reports 16376 MiB, "32 GB" of RAM leaves about 31 GiB, a 50 GB SSD has ~46 GiB free.
-    m = variant(WORKSTATION, gpus=gpu_of("NVIDIA GeForce RTX 4080", 16376 / 1024), ram_gb=31.2, disk_free_gb=60.0)
+    m = variant(
+        WORKSTATION,
+        gpus=gpu_of("NVIDIA GeForce RTX 4080", 16376 / 1024),
+        ram_gb=31.2,
+        disk_free_gb=60.0,
+    )
     assert dm.assess_isaac(m).level == "ok"
 
 
@@ -93,8 +119,15 @@ def test_an_old_driver_warns_but_does_not_block():
 
 
 def test_windows_host_uses_gazebo_in_wsl_and_counts_half_the_ram():
-    win = Machine("windows", "Windows 11 (build 26300)", ram_gb=23.0, cores=12, disk_free_gb=49.0, disk_path="D:\\",
-                  gpus=gpu_of("NVIDIA GeForce RTX 4090", 24.0, "581.86"))
+    win = Machine(
+        "windows",
+        "Windows 11 (build 26300)",
+        ram_gb=23.0,
+        cores=12,
+        disk_free_gb=49.0,
+        disk_path="D:\\",
+        gpus=gpu_of("NVIDIA GeForce RTX 4090", 24.0, "581.86"),
+    )
     isaac, gazebo, rec = verdicts(win)
     assert (gazebo.level, isaac.level, rec) == ("ok", "no", "gazebo")
     assert "WSL2" in check(isaac, "System").detail
@@ -110,7 +143,10 @@ def test_no_gpu_still_gets_gazebo_in_software():
 
 
 def test_other_linux_and_macos_can_run_neither():
-    for m in (variant(WORKSTATION, os_name="Fedora 41", ubuntu=""), Machine("darwin", "macOS", ram_gb=32.0, cores=10, disk_free_gb=300.0)):
+    for m in (
+        variant(WORKSTATION, os_name="Fedora 41", ubuntu=""),
+        Machine("darwin", "macOS", ram_gb=32.0, cores=10, disk_free_gb=300.0),
+    ):
         _, _, rec = verdicts(m)
         assert rec == "none"
 
@@ -127,7 +163,13 @@ def test_too_little_memory_or_disk_rules_gazebo_out():
 
 
 def test_the_biggest_gpu_is_the_one_judged():
-    m = variant(WORKSTATION, gpus=(Gpu("NVIDIA GeForce RTX 3050", 6.0, "580.1"), Gpu("NVIDIA RTX 6000 Ada Generation", 48.0, "580.1")))
+    m = variant(
+        WORKSTATION,
+        gpus=(
+            Gpu("NVIDIA GeForce RTX 3050", 6.0, "580.1"),
+            Gpu("NVIDIA RTX 6000 Ada Generation", 48.0, "580.1"),
+        ),
+    )
     assert dm.assess_isaac(m).level == "ok"
 
 
@@ -151,7 +193,9 @@ def test_cli_brief_and_json_and_report(tmp_path, capsys):
 
 
 def test_probe_describes_the_machine_it_runs_on(tmp_path):
-    m = dm.probe(str(tmp_path / "does" / "not" / "exist"))  # a path that is yet to be made: its parent is measured
+    m = dm.probe(
+        str(tmp_path / "does" / "not" / "exist")
+    )  # a path that is yet to be made: its parent is measured
     assert m.system in ("linux", "windows", "darwin")
     assert m.cores > 0 and m.ram_gb > 0 and m.disk_free_gb > 0
     assert Path(m.disk_path).exists()

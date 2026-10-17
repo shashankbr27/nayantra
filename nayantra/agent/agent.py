@@ -37,9 +37,9 @@ from nayantra.config import settings
 logger = logging.getLogger("nayantra.agent")
 
 _MAX_AGENT_ITERS = 12
-_HISTORY_MAX_TURNS = 8      # earlier chat messages handed to the model with a new request
-_HISTORY_TURN_CHARS = 600   # per message
-_HISTORY_MAX_CHARS = 3000   # in total
+_HISTORY_MAX_TURNS = 8  # earlier chat messages handed to the model with a new request
+_HISTORY_TURN_CHARS = 600  # per message
+_HISTORY_MAX_CHARS = 3000  # in total
 
 SYSTEM_PROMPT = """You are the operator assistant of Nayantra, a control plane for heterogeneous robot fleets \
 (UGVs, UAVs, quadrupeds, humanoids). You turn the operator's request into Nayantra operations using the \

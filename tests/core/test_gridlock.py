@@ -39,7 +39,9 @@ def wait_for(fn, timeout: float = 40.0, interval: float = 0.1):
 @pytest.fixture
 def warehouse(tmp_path):
     """The real Gazebo warehouse map and robots, but driven by the kinematic simulator."""
-    scenario = json.loads((REPO / "config/scenarios/gazebo_warehouse.json").read_text(encoding="utf-8"))
+    scenario = json.loads(
+        (REPO / "config/scenarios/gazebo_warehouse.json").read_text(encoding="utf-8")
+    )
     scenario["maps"] = [str(REPO / "config/maps/gazebo_warehouse.json")]
     for fleet in scenario["fleets"]:
         fleet["communication"] = {"protocol": "simulation", "namespace": ""}
@@ -49,7 +51,13 @@ def warehouse(tmp_path):
     core = NayantraCore(db_path=":memory:", scenario=str(path))
     with TestClient(create_app(core)) as c:
         c.patch("/api/v1/sim", json={"speed": 8.0})
-        wait_for(lambda: len(core.fleet.runtimes) == 3 and all(rt.state.online for rt in core.fleet.runtimes.values()), 10)
+        wait_for(
+            lambda: (
+                len(core.fleet.runtimes) == 3
+                and all(rt.state.online for rt in core.fleet.runtimes.values())
+            ),
+            10,
+        )
         c.core = core
         yield c
 
@@ -75,7 +83,12 @@ def test_charge_and_navigate_that_swap_places_resolve(warehouse):
     c = warehouse
     assert near(c, "ugv_01", RECV_DOCK) and near(c, "ugv_03", CHARGER)
     assert c.post("/api/v1/robots/ugv_01/charge", headers=UI).status_code == 201
-    assert c.post("/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "recv_dock"}).status_code == 201
+    assert (
+        c.post(
+            "/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "recv_dock"}
+        ).status_code
+        == 201
+    )
     closest = [99.0]
 
     def swapped():
@@ -86,14 +99,26 @@ def test_charge_and_navigate_that_swap_places_resolve(warehouse):
     wait_for(swapped, 60)
     assert closest[0] > 0.9, "the robots must never overlap while swapping"
     for rid in ("ugv_01", "ugv_03"):
-        assert all(t["status"] in ("completed", "executing") for t in task_of(c, rid)), task_of(c, rid)
+        assert all(t["status"] in ("completed", "executing") for t in task_of(c, rid)), task_of(
+            c, rid
+        )
 
 
 def test_navigate_swap_between_the_same_two_places_resolves(warehouse):
     """Same swap with two explicit destinations: the path that already worked must keep working."""
     c = warehouse
-    assert c.post("/api/v1/robots/ugv_01/navigate", headers=UI, json={"waypoint": "charger"}).status_code == 201
-    assert c.post("/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "recv_dock"}).status_code == 201
+    assert (
+        c.post(
+            "/api/v1/robots/ugv_01/navigate", headers=UI, json={"waypoint": "charger"}
+        ).status_code
+        == 201
+    )
+    assert (
+        c.post(
+            "/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "recv_dock"}
+        ).status_code
+        == 201
+    )
     wait_for(lambda: near(c, "ugv_01", CHARGER) and near(c, "ugv_03", RECV_DOCK), 60)
 
 
@@ -107,7 +132,12 @@ def test_swap_when_both_robots_are_already_working_is_planned_jointly(warehouse)
     for rid in ("ugv_01", "ugv_03"):
         assert c.post(f"/api/v1/robots/{rid}/pause", headers=UI).status_code == 200
     assert c.post("/api/v1/robots/ugv_01/charge", headers=UI).status_code == 201
-    assert c.post("/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "recv_dock"}).status_code == 201
+    assert (
+        c.post(
+            "/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "recv_dock"}
+        ).status_code
+        == 201
+    )
     for rid in ("ugv_01", "ugv_03"):
         c.post(f"/api/v1/robots/{rid}/resume", headers=UI)
     closest = [99.0]
@@ -120,7 +150,9 @@ def test_swap_when_both_robots_are_already_working_is_planned_jointly(warehouse)
     wait_for(swapped, 60)
     assert closest[0] > 0.9
     kinds = {t["type"] for rid in ("ugv_01", "ugv_03") for t in task_of(c, rid)}
-    assert "make_way" not in kinds, "both robots were busy: nobody should have been asked to make way"
+    assert "make_way" not in kinds, (
+        "both robots were busy: nobody should have been asked to make way"
+    )
 
 
 def test_charge_task_asks_an_idle_robot_to_leave_the_only_charger(warehouse):
@@ -136,11 +168,18 @@ def test_charge_task_keeps_waiting_while_another_robot_is_heading_to_the_charger
     """The fallback must not steal a charger another robot is already driving to."""
     c = warehouse
     # UGV-3 leaves the charger for a far node; UGV-2 is sent to the charger first.
-    assert c.post("/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "north_mid"}).status_code == 201
+    assert (
+        c.post(
+            "/api/v1/robots/ugv_03/navigate", headers=UI, json={"waypoint": "north_mid"}
+        ).status_code
+        == 201
+    )
     wait_for(lambda: not near(c, "ugv_03", CHARGER, 1.5), 20)
     assert c.post("/api/v1/robots/ugv_02/charge", headers=UI).status_code == 201
     wait_for(lambda: c.core.fleet.runtimes["ugv_02"].goal_node == "charger", 10)
     assert c.post("/api/v1/robots/ugv_01/charge", headers=UI).status_code == 201
     time.sleep(1.5)
-    assert c.core.fleet.runtimes["ugv_01"].goal_node != "charger", "UGV-01 must not claim the charger UGV-02 is heading to"
+    assert c.core.fleet.runtimes["ugv_01"].goal_node != "charger", (
+        "UGV-01 must not claim the charger UGV-02 is heading to"
+    )
     assert c.core.fleet.runtimes["ugv_02"].goal_node == "charger"

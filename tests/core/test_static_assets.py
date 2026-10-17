@@ -22,7 +22,9 @@ async def client(tmp_path, monkeypatch):
     core = NayantraCore(db_path=":memory:", scenario="warehouse_demo")
     await core.start()
     app = create_app(core, start_core=False)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://core") as c:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://core"
+    ) as c:
         yield c
     await core.stop()
 

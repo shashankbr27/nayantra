@@ -603,7 +603,9 @@ class FleetManager:
     def claimed_targets(self, robot_id: str) -> set[str]:
         """Nodes another robot has been sent to (planned or heading there), whether or not it has arrived."""
         claimed = {plan.goal for rid, plan in self.traffic.plans.items() if rid != robot_id}
-        claimed |= {o.goal_node for rid, o in self.runtimes.items() if rid != robot_id and o.goal_node}
+        claimed |= {
+            o.goal_node for rid, o in self.runtimes.items() if rid != robot_id and o.goal_node
+        }
         return claimed
 
     def _choose_candidate(self, rt: RobotRuntime, step, graph: MapGraph) -> str | None:

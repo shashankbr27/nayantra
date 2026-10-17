@@ -162,7 +162,9 @@ class ChatTurn(BaseModel):
 
 class AgentCommand(BaseModel):
     command: str = Field(..., min_length=1, max_length=2000)
-    history: list[ChatTurn] = Field(default_factory=list, max_length=16)  # earlier turns of the chat, oldest first
+    history: list[ChatTurn] = Field(
+        default_factory=list, max_length=16
+    )  # earlier turns of the chat, oldest first
 
 
 # ---------------------------------------------------------------------------

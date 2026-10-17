@@ -46,7 +46,9 @@ GAZEBO_RAM = (7.5, 3.5)
 GAZEBO_DISK = (10.0, 6.0)
 
 # Data-centre GPUs without RT cores: Isaac Sim's renderer cannot use them.
-NO_RT_CORES = re.compile(r"\b(A100|A800|A30|H100|H200|H800|GH200|B100|B200|GB200|V100|P100)\b", re.I)
+NO_RT_CORES = re.compile(
+    r"\b(A100|A800|A30|H100|H200|H800|GH200|B100|B200|GB200|V100|P100)\b", re.I
+)
 
 
 @dataclass(frozen=True)
@@ -126,7 +128,15 @@ def _windows_ram_gb() -> float:
     class MemoryStatus(ctypes.Structure):
         _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong)] + [
             (n, ctypes.c_ulonglong)
-            for n in ("total", "avail", "page_total", "page_avail", "virt_total", "virt_avail", "virt_ext")
+            for n in (
+                "total",
+                "avail",
+                "page_total",
+                "page_avail",
+                "virt_total",
+                "virt_avail",
+                "virt_ext",
+            )
         ]
 
     st = MemoryStatus()
@@ -136,13 +146,18 @@ def _windows_ram_gb() -> float:
 
 
 def _gpus() -> tuple[Gpu, ...]:
-    exe = shutil.which("nvidia-smi") or ("/usr/lib/wsl/lib/nvidia-smi" if Path("/usr/lib/wsl/lib/nvidia-smi").exists() else "")
+    exe = shutil.which("nvidia-smi") or (
+        "/usr/lib/wsl/lib/nvidia-smi" if Path("/usr/lib/wsl/lib/nvidia-smi").exists() else ""
+    )
     if not exe:
         return ()
     try:
         out = subprocess.run(
             [exe, "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=15, check=True,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
         ).stdout
     except (OSError, subprocess.SubprocessError):
         return ()
@@ -161,10 +176,19 @@ def probe(path: str = ".") -> Machine:
     system = platform.system().lower()
     where = _existing_parent(path)
     disk = shutil.disk_usage(where).free / 2**30
-    common = {"cores": os.cpu_count() or 0, "disk_free_gb": disk, "disk_path": str(where), "gpus": _gpus()}
+    common = {
+        "cores": os.cpu_count() or 0,
+        "disk_free_gb": disk,
+        "disk_path": str(where),
+        "gpus": _gpus(),
+    }
     if system == "windows":
-        build = platform.version().rsplit(".", 1)[-1]  # Windows 11 still reports version 10.0.<build>
-        name = f"Windows {'11' if build.isdigit() and int(build) >= 22000 else '10'} (build {build})"
+        build = platform.version().rsplit(".", 1)[
+            -1
+        ]  # Windows 11 still reports version 10.0.<build>
+        name = (
+            f"Windows {'11' if build.isdigit() and int(build) >= 22000 else '10'} (build {build})"
+        )
         return Machine(system, name, ram_gb=_windows_ram_gb(), **common)
     ram = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
     if system != "linux":
@@ -194,49 +218,122 @@ def assess_gazebo(m: Machine) -> Verdict:
     ram = m.ram_gb
     if m.system == "windows":
         ram /= 2  # WSL2 is given half the RAM unless .wslconfig says otherwise
-        checks.append(Check("System", "ok", f"{m.os_name}: runs in an Ubuntu 24.04 WSL2 distro that setup creates"))
+        checks.append(
+            Check(
+                "System",
+                "ok",
+                f"{m.os_name}: runs in an Ubuntu 24.04 WSL2 distro that setup creates",
+            )
+        )
     elif m.system == "linux" and m.ubuntu in UBUNTU_ROS:
-        checks.append(Check("System", "ok", f"{m.os_name}{' (WSL2)' if m.wsl else ''}: ROS 2 {UBUNTU_ROS[m.ubuntu]}"))
+        checks.append(
+            Check(
+                "System",
+                "ok",
+                f"{m.os_name}{' (WSL2)' if m.wsl else ''}: ROS 2 {UBUNTU_ROS[m.ubuntu]}",
+            )
+        )
     else:
-        checks.append(Check("System", "fail", f"{m.os_name or m.system}: needs Ubuntu 22.04 or 24.04, or Windows 11 with WSL2"))
+        checks.append(
+            Check(
+                "System",
+                "fail",
+                f"{m.os_name or m.system}: needs Ubuntu 22.04 or 24.04, or Windows 11 with WSL2",
+            )
+        )
     note = " in WSL2 (half of the RAM by default)" if m.system == "windows" else ""
-    checks.append(Check("Memory", _tier(ram, *GAZEBO_RAM), f"{_gb(ram)}{note}, 8 GB or more is comfortable"))
-    checks.append(Check("Disk", _tier(m.disk_free_gb, *GAZEBO_DISK), f"{_gb(m.disk_free_gb)} free, needs about 10 GB"))
+    checks.append(
+        Check("Memory", _tier(ram, *GAZEBO_RAM), f"{_gb(ram)}{note}, 8 GB or more is comfortable")
+    )
+    checks.append(
+        Check(
+            "Disk",
+            _tier(m.disk_free_gb, *GAZEBO_DISK),
+            f"{_gb(m.disk_free_gb)} free, needs about 10 GB",
+        )
+    )
     gpu = m.gpu
-    checks.append(Check(
-        "Graphics", "ok",
-        f"{gpu.name}: hardware rendering" if gpu else "no NVIDIA GPU: Gazebo draws in software (slower, still works)",
-    ))
+    checks.append(
+        Check(
+            "Graphics",
+            "ok",
+            f"{gpu.name}: hardware rendering"
+            if gpu
+            else "no NVIDIA GPU: Gazebo draws in software (slower, still works)",
+        )
+    )
     return Verdict("gazebo", tuple(checks))
 
 
 def assess_isaac(m: Machine) -> Verdict:
     checks = []
     if m.system == "windows":
-        checks.append(Check("System", "fail", f"{m.os_name}: Nayantra runs ROS 2 and Nav2 in WSL2 on Windows, and Isaac Sim does not run in WSL2"))
+        checks.append(
+            Check(
+                "System",
+                "fail",
+                f"{m.os_name}: Nayantra runs ROS 2 and Nav2 in WSL2 on Windows, and Isaac Sim does not run in WSL2",
+            )
+        )
     elif m.system != "linux" or m.ubuntu not in UBUNTU_ROS:
-        checks.append(Check("System", "fail", f"{m.os_name or m.system}: Isaac Sim needs Ubuntu 22.04 or 24.04"))
+        checks.append(
+            Check(
+                "System", "fail", f"{m.os_name or m.system}: Isaac Sim needs Ubuntu 22.04 or 24.04"
+            )
+        )
     elif m.wsl:
-        checks.append(Check("System", "fail", f"{m.os_name} under WSL2: Isaac Sim does not run in WSL2, use a native Ubuntu install"))
+        checks.append(
+            Check(
+                "System",
+                "fail",
+                f"{m.os_name} under WSL2: Isaac Sim does not run in WSL2, use a native Ubuntu install",
+            )
+        )
     else:
         checks.append(Check("System", "ok", m.os_name))
     gpu = m.gpu
     if gpu is None:
         checks.append(Check("GPU", "fail", "no NVIDIA GPU found (Isaac Sim needs an RTX card)"))
     elif NO_RT_CORES.search(gpu.name):
-        checks.append(Check("GPU", "fail", f"{gpu.name} has no RT cores, which Isaac Sim's renderer needs"))
+        checks.append(
+            Check("GPU", "fail", f"{gpu.name} has no RT cores, which Isaac Sim's renderer needs")
+        )
     else:
         checks.append(Check("GPU", "ok", gpu.name))
-        checks.append(Check(
-            "VRAM", _tier(gpu.vram_gb, *ISAAC_VRAM),
-            f"{_gb(gpu.vram_gb)}, NVIDIA's minimum is 16 GB" + (" (8 GB is the least we will offer)" if gpu.vram_gb < ISAAC_VRAM[1] else ""),
-        ))
+        checks.append(
+            Check(
+                "VRAM",
+                _tier(gpu.vram_gb, *ISAAC_VRAM),
+                f"{_gb(gpu.vram_gb)}, NVIDIA's minimum is 16 GB"
+                + (" (8 GB is the least we will offer)" if gpu.vram_gb < ISAAC_VRAM[1] else ""),
+            )
+        )
         major = re.match(r"\d+", gpu.driver)
         if major and int(major.group()) < ISAAC_DRIVER_MAJOR:
-            checks.append(Check("Driver", "warn", f"{gpu.driver}: Isaac Sim 6.0 lists {ISAAC_DRIVER_MAJOR}.x or newer"))
-    checks.append(Check("Memory", _tier(m.ram_gb, *ISAAC_RAM), f"{_gb(m.ram_gb)}, NVIDIA's minimum is 32 GB"))
-    checks.append(Check("CPU", "ok" if m.cores >= ISAAC_CORES else "warn", f"{m.cores} threads, NVIDIA's minimum is {ISAAC_CORES} cores"))
-    checks.append(Check("Disk", _tier(m.disk_free_gb, *ISAAC_DISK), f"{_gb(m.disk_free_gb)} free, needs about 50 GB"))
+            checks.append(
+                Check(
+                    "Driver",
+                    "warn",
+                    f"{gpu.driver}: Isaac Sim 6.0 lists {ISAAC_DRIVER_MAJOR}.x or newer",
+                )
+            )
+    checks.append(
+        Check("Memory", _tier(m.ram_gb, *ISAAC_RAM), f"{_gb(m.ram_gb)}, NVIDIA's minimum is 32 GB")
+    )
+    checks.append(
+        Check(
+            "CPU",
+            "ok" if m.cores >= ISAAC_CORES else "warn",
+            f"{m.cores} threads, NVIDIA's minimum is {ISAAC_CORES} cores",
+        )
+    )
+    checks.append(
+        Check(
+            "Disk",
+            _tier(m.disk_free_gb, *ISAAC_DISK),
+            f"{_gb(m.disk_free_gb)} free, needs about 50 GB",
+        )
+    )
     return Verdict("isaac", tuple(checks))
 
 
@@ -265,7 +362,10 @@ def report(m: Machine, isaac: Verdict, gazebo: Verdict, rec: str) -> str:
     for v, title in ((gazebo, "Gazebo"), (isaac, "Isaac Sim")):
         lines += ["", f"  {title}: {_LEVEL[v.level]}"]
         lines += [f"    [{_MARK[c.status]}] {c.label:<9}{c.detail}" for c in v.checks]
-    lines += ["", f"  Recommended: {({'isaac': 'Isaac Sim', 'gazebo': 'Gazebo', 'none': 'neither (see above)'})[rec]}"]
+    lines += [
+        "",
+        f"  Recommended: {({'isaac': 'Isaac Sim', 'gazebo': 'Gazebo', 'none': 'neither (see above)'})[rec]}",
+    ]
     return "\n".join(lines)
 
 
@@ -273,15 +373,24 @@ def to_json(m: Machine, isaac: Verdict, gazebo: Verdict, rec: str) -> dict:
     def verdict(v: Verdict) -> dict:
         return {"level": v.level, "checks": [asdict(c) for c in v.checks]}
 
-    return {"machine": asdict(m), "isaac": verdict(isaac), "gazebo": verdict(gazebo), "recommended": rec}
+    return {
+        "machine": asdict(m),
+        "isaac": verdict(isaac),
+        "gazebo": verdict(gazebo),
+        "recommended": rec,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--path", default=".", help="measure free disk space where this path lives")
-    ap.add_argument("--from-json", metavar="FILE", help="use the machine described in FILE instead of probing")
+    ap.add_argument(
+        "--from-json", metavar="FILE", help="use the machine described in FILE instead of probing"
+    )
     out = ap.add_mutually_exclusive_group()
-    out.add_argument("--brief", action="store_true", help="print: <recommended> <isaac level> <gazebo level>")
+    out.add_argument(
+        "--brief", action="store_true", help="print: <recommended> <isaac level> <gazebo level>"
+    )
     out.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 

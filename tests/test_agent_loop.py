@@ -205,7 +205,10 @@ def test_with_history_is_a_no_op_without_history():
 
 
 def test_with_history_keeps_the_newest_turns_and_bounds_the_size():
-    history = [{"role": "user" if i % 2 == 0 else "assistant", "text": f"message {i} " + "x" * 700} for i in range(20)]
+    history = [
+        {"role": "user" if i % 2 == 0 else "assistant", "text": f"message {i} " + "x" * 700}
+        for i in range(20)
+    ]
     prompt = with_history("what now?", history)
     assert "message 19" in prompt and "message 0 " not in prompt  # oldest dropped
     assert len(prompt) < 3500  # 3000 chars of history plus the framing
