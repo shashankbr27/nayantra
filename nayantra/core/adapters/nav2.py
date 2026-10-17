@@ -20,10 +20,10 @@ is identity, as in scripts/nav2_demo.launch.py).
 ROS 2 Humble and Jazzy are both supported (ros_compat.py); the connection test
 reports which distro is sourced.
 
-Status: written against the rclpy / nav2_msgs APIs but NOT yet run
-against a live Nav2 stack (CI and the dev laptop have no ROS 2). Validate on
-the Isaac + Nav2 workstation before relying on it; the connection test
-reports each interface separately to make that bring-up quick.
+Status: run live against Nav2 on ROS 2 Jazzy in Gazebo (docs/gazebo_architecture.md):
+navigate, back-to-back tasks, pause/resume and e-stop. Not yet run on Humble, Isaac
+Sim or hardware; the connection test reports each interface separately to make
+that bring-up quick. CI has no ROS 2, so the unit tests use fake clients.
 """
 
 from __future__ import annotations
@@ -114,7 +114,13 @@ class Nav2Adapter(RobotAdapter):
             ]
 
         odom_topic = self._topic("odom")
+        # DDS discovery is asynchronous: a publisher that is already running can take a moment
+        # to show up, so wait for it (and its first message) before judging the robot.
+        deadline = time.monotonic() + 3.0
         pubs = rt.publisher_count(odom_topic)
+        while (pubs == 0 or self.last_odom == 0.0) and time.monotonic() < deadline:
+            await asyncio.sleep(0.1)
+            pubs = rt.publisher_count(odom_topic)
         checks.append(
             CheckResult(
                 "Robot discovered",
@@ -124,9 +130,6 @@ class Nav2Adapter(RobotAdapter):
                 else f"nothing publishes {odom_topic} — is the robot / simulator running with namespace '{self.ns or '/'}'?",
             )
         )
-        deadline = time.monotonic() + 3.0
-        while self.last_odom == 0.0 and time.monotonic() < deadline:
-            await asyncio.sleep(0.1)
         checks.append(
             CheckResult(
                 "Odometry available",
@@ -333,6 +336,7 @@ class Nav2Adapter(RobotAdapter):
     async def follow_path(self, path: list[Pose], speed_limits: list[float] | None = None) -> None:
         if self.estop or not self.online:
             return
+        await self._cancel_active()  # the new path replaces whatever Nav2 is still finishing
         self.path = list(path)
         self.path_index = -1
         self.failed = ""
@@ -400,22 +404,37 @@ class Nav2Adapter(RobotAdapter):
         except Exception as exc:  # noqa: BLE001
             self.failed = f"Nav2 goal error: {exc}"
 
-    def _cancel_goal(self) -> None:
+    def _cancel_goal(self) -> Any:
+        """Ask Nav2 to cancel the active goal; returns the cancel future, or None."""
         self._goal_seq += 1
-        if self._goal_handle is not None:
-            try:
-                self._goal_handle.cancel_goal_async()
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(f"{self.robot.name}: Nav2 cancel failed: {exc}")
-            self._goal_handle = None
+        handle, self._goal_handle = self._goal_handle, None
+        if handle is None:
+            return None
+        try:
+            return handle.cancel_goal_async()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"{self.robot.name}: Nav2 cancel failed: {exc}")
+            return None
+
+    async def _cancel_active(self) -> None:
+        """Cancel the active goal and wait until Nav2 has let go of it.
+
+        Nav2 runs one navigator at a time, so a goal sent while the previous one is still
+        winding down (a task counts as arrived inside ARRIVE_TOL_M, before Nav2 declares
+        success) can be rejected, notably when it switches between NavigateThroughPoses and
+        NavigateToPose.
+        """
+        fut = self._cancel_goal()
+        if fut is not None:
+            await self._await(fut, 3.0)
 
     async def stop(self) -> None:
-        self._cancel_goal()
+        await self._cancel_active()
         self.path, self.path_index = [], -1
 
     async def pause(self) -> None:
         self.paused = True
-        self._cancel_goal()
+        await self._cancel_active()
 
     async def resume(self) -> None:
         self.paused = False
