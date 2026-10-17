@@ -54,11 +54,16 @@ export const api = {
 };
 
 /** Stream the agent's SSE reply to a natural-language command. */
-export async function streamAgent(command: string, onEvent: (event: string, data: Record<string, unknown>) => void, signal?: AbortSignal) {
+export async function streamAgent(
+  command: string,
+  onEvent: (event: string, data: Record<string, unknown>) => void,
+  signal?: AbortSignal,
+  history: { role: "user" | "assistant"; text: string }[] = [],
+) {
   const resp = await fetch("/api/v1/agent/command", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Nayantra-Client": "ui" },
-    body: JSON.stringify({ command }),
+    body: JSON.stringify({ command, history }),
     signal,
   });
   if (!resp.ok || !resp.body) throw new ApiError(resp.status, `Agent relay failed (HTTP ${resp.status})`);

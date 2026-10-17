@@ -62,7 +62,7 @@ export function MapChrome({ control, cursor, pxPerM }: { control: React.MutableR
         )}
         {goTo && (
           <div className="map-chip glass" style={{ paddingRight: 10, borderColor: "var(--accent)" }}>
-            <span style={{ color: "var(--accent)", fontWeight: 600 }}>Go-to mode</span>
+            <span style={{ color: "var(--accent-fg)", fontWeight: 600 }}>Go-to mode</span>
             <span className="muted">click a waypoint · Esc to cancel</span>
           </div>
         )}

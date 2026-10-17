@@ -15,7 +15,7 @@ export interface Toast { id: number; kind: "info" | "success" | "warning" | "err
 const EMPTY_TRAFFIC: TrafficState = { reservations: [], itineraries: [], conflicts: [], waits: [], precedences: [] };
 const TRAIL_POINTS = 90;
 
-function readPref<T>(key: string, fallback: T): T {
+export function readPref<T>(key: string, fallback: T): T {
   try {
     const v = localStorage.getItem(`nayantra.${key}`);
     return v ? (JSON.parse(v) as T) : fallback;

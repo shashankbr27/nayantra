@@ -118,11 +118,12 @@ def create_app(core: NayantraCore | None = None, start_core: bool = True) -> Fas
         async def index():
             return FileResponse(str(dist / "index.html"), headers={"Cache-Control": "no-cache"})
 
-        for extra in ("favicon.svg", "favicon.ico"):
-            if (dist / extra).exists():
+        # Everything the build copied from web/public (favicons in several variants, logos, ...).
+        for static in sorted(dist.iterdir()):
+            if static.is_file() and static.name != "index.html":
                 app.add_api_route(
-                    f"/{extra}",
-                    lambda e=extra: FileResponse(str(dist / e)),
+                    f"/{static.name}",
+                    lambda f=static: FileResponse(str(f)),
                     include_in_schema=False,
                 )
     else:

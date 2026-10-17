@@ -6,6 +6,7 @@ import {
 import { api, isConfirmation } from "../api/client";
 import { type Page, useWorld } from "../store/world";
 import { ago, errMsg } from "../lib/format";
+import { Logo } from "./Logo";
 import { Modal, vars } from "./ui";
 
 const PAGES: { id: Page; label: string; icon: React.ReactNode }[] = [
@@ -16,16 +17,6 @@ const PAGES: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: "map", label: "Map editor", icon: <MapIcon size={14} /> },
   { id: "system", label: "System", icon: <Server size={14} /> },
 ];
-
-export function Logo() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden>
-      <circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" strokeWidth="2.4" />
-      <circle cx="16" cy="16" r="3.4" fill="currentColor" />
-      <path d="M16 2v6M16 24v6M2 16h6M24 16h6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export function TopBar() {
   const page = useWorld((s) => s.page);
@@ -39,7 +30,7 @@ export function TopBar() {
   const critical = active.some((a) => a.severity === "critical" || a.severity === "error");
   return (
     <header className="topbar">
-      <div className="brand"><Logo /> NAYANTRA</div>
+      <div className="brand"><Logo size={34} /> NAYANTRA</div>
       <nav className="nav">
         {PAGES.map((p) => (
           <button key={p.id} className={page === p.id ? "active" : ""} onClick={() => setPage(p.id)}>
@@ -57,8 +48,18 @@ export function TopBar() {
         <span className={`dot${connected ? "" : " pulse"}`} style={vars({ "--c": connected ? "#34d399" : "#f87171" })} />
         {connected ? "Live" : "Reconnecting…"}
       </span>
-      <button className="btn ghost icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Toggle theme" aria-label="Toggle theme">
-        {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={theme === "dark"}
+        aria-label="Dark mode"
+        className="theme-switch"
+        title={theme === "dark" ? "Dark mode — switch to light" : "Light mode — switch to dark"}
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      >
+        <span className="knob" />
+        <Sun className="ico sun" />
+        <Moon className="ico moon" />
       </button>
       <button
         className="estop small"
