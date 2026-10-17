@@ -18,6 +18,7 @@ that caused it.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 import logging
@@ -36,6 +37,9 @@ from nayantra.config import settings
 logger = logging.getLogger("nayantra.agent")
 
 _MAX_AGENT_ITERS = 12
+_HISTORY_MAX_TURNS = 8      # earlier chat messages handed to the model with a new request
+_HISTORY_TURN_CHARS = 600   # per message
+_HISTORY_MAX_CHARS = 3000   # in total
 
 SYSTEM_PROMPT = """You are the operator assistant of Nayantra, a control plane for heterogeneous robot fleets \
 (UGVs, UAVs, quadrupeds, humanoids). You turn the operator's request into Nayantra operations using the \
@@ -95,23 +99,53 @@ def to_openai_tool(tool: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# The only JSON-Schema keywords Gemini's Schema accepts. google-genai rejects anything else
+# (pydantic's gt=/lt= emit exclusiveMinimum/exclusiveMaximum, for one), and a single bad
+# keyword in one tool fails every command, so keep an allow-list rather than a block-list.
+_GEMINI_SCHEMA_KEYS = frozenset(
+    {
+        "type",
+        "description",
+        "enum",
+        "items",
+        "properties",
+        "required",
+        "nullable",
+        "minimum",
+        "maximum",
+        "minItems",
+        "maxItems",
+        "minLength",
+        "maxLength",
+        "pattern",
+    }
+)
+
+
 def _flatten_for_gemini(prop: dict[str, Any]) -> dict[str, Any]:
-    """Gemini's schema subset: no `anyOf [X, null]`, string-only enums, no defaults."""
+    """Gemini's schema subset: no `anyOf [X, null]`, string-only enums, no defaults, no
+    exclusive bounds. What Gemini cannot express stays in the description for the model;
+    the MCP server still validates every call."""
     p = copy.deepcopy(prop)
     any_of = p.pop("anyOf", None)
     if any_of:
         non_null = [s for s in any_of if s.get("type") != "null"]
         base = non_null[0] if non_null else {"type": "string"}
         p = {**base, **p, "nullable": True}
-    p.pop("default", None)
-    p.pop("title", None)
+    notes = []
+    if "exclusiveMinimum" in p:
+        notes.append(f"must be greater than {p['exclusiveMinimum']}")
+    if "exclusiveMaximum" in p:
+        notes.append(f"must be less than {p['exclusiveMaximum']}")
     if "enum" in p and any(not isinstance(v, str) for v in p["enum"]):
-        p["description"] = (
-            f"{p.get('description', '')} (one of {', '.join(map(str, p.pop('enum')))})".strip()
-        )
-    if p.get("type") == "array" and isinstance(p.get("items"), dict):
+        notes.append(f"one of {', '.join(map(str, p.pop('enum')))}")
+    if notes:
+        p["description"] = f"{p.get('description', '')} ({'; '.join(notes)})".strip()
+    if isinstance(p.get("items"), dict):
         p["items"] = _flatten_for_gemini(p["items"])
-    return p
+    if isinstance(p.get("properties"), dict):
+        p["properties"] = {k: _flatten_for_gemini(v) for k, v in p["properties"].items()}
+    return {k: v for k, v in p.items() if k in _GEMINI_SCHEMA_KEYS}
 
 
 def to_gemini_tool(tool: dict[str, Any]) -> dict[str, Any]:
@@ -298,10 +332,28 @@ class _GeminiProvider(_Provider):
         }
         self.contents: list[Any] = [types.Content(role="user", parts=[types.Part(text=command)])]
 
+    #: seconds to wait before each retry of a transient Gemini failure
+    RETRY_DELAYS = (1.0, 2.0, 4.0)
+
+    async def _generate(self, **kwargs: Any) -> Any:
+        """generate_content, retrying the transient failures Gemini is known for: 5xx such as
+        503 "high demand", and 429 rate limits. Safe to repeat: nothing has happened on the
+        Nayantra side yet (tools only run after a response arrives)."""
+        from google.genai import errors
+
+        for delay in (*self.RETRY_DELAYS, None):
+            try:
+                return await self.client.aio.models.generate_content(**kwargs)
+            except (errors.ServerError, errors.ClientError) as exc:
+                transient = isinstance(exc, errors.ServerError) or getattr(exc, "code", 0) == 429
+                if not transient or delay is None:
+                    raise
+                logger.warning(f"Gemini {getattr(exc, 'code', '?')}; retrying in {delay:g}s")
+                await asyncio.sleep(delay)
+        raise AssertionError("unreachable")  # pragma: no cover
+
     async def next_turn(self) -> Turn:
-        resp = await self.client.aio.models.generate_content(
-            model=self.model, contents=self.contents, config=self.config
-        )
+        resp = await self._generate(model=self.model, contents=self.contents, config=self.config)
         cand = (getattr(resp, "candidates", None) or [None])[0]
         content = getattr(cand, "content", None) if cand else None
         parts = (getattr(content, "parts", None) or []) if content else []
@@ -328,7 +380,7 @@ class _GeminiProvider(_Provider):
         self.contents.append(t.Content(role="user", parts=parts))
 
     async def summarise(self, prompt: str) -> str:
-        resp = await self.client.aio.models.generate_content(
+        resp = await self._generate(
             model=self.model, contents=prompt, config={"temperature": 0.3, "max_output_tokens": 300}
         )
         return (getattr(resp, "text", None) or "").strip()
@@ -418,10 +470,12 @@ class RMFAgent:
         return result, ok, err
 
     # -- loop ------------------------------------------------------------------
-    async def _loop(self, command: str, mission: MissionResult) -> AsyncIterator[tuple[str, dict]]:
+    async def _loop(
+        self, command: str, mission: MissionResult, history: list[dict[str, Any]] | None = None
+    ) -> AsyncIterator[tuple[str, dict]]:
         yield ("status", {"message": "Thinking…"})
         provider = self._provider_factory()
-        provider.start(command, await self._get_tools())
+        provider.start(with_history(command, history), await self._get_tools())
         final_text = ""
         finished = False
         for _ in range(_MAX_AGENT_ITERS):
@@ -483,18 +537,20 @@ class RMFAgent:
         return f"Mission completed {status} in {len(mission.steps)} steps."
 
     # -- public ---------------------------------------------------------------
-    async def run(self, command: str) -> MissionResult:
+    async def run(self, command: str, history: list[dict[str, Any]] | None = None) -> MissionResult:
         logger.info(f"Command received: {command!r}")
         mission = MissionResult(command=command)
-        async for _ in self._loop(command, mission):
+        async for _ in self._loop(command, mission, history):
             pass
         return mission
 
-    async def stream_run(self, command: str) -> AsyncIterator[str]:
+    async def stream_run(
+        self, command: str, history: list[dict[str, Any]] | None = None
+    ) -> AsyncIterator[str]:
         """SSE stream: status, step_start, step_done, done. Errors end as a 'done' event."""
         mission = MissionResult(command=command)
         try:
-            async for kind, data in self._loop(command, mission):
+            async for kind, data in self._loop(command, mission, history):
                 yield _sse(kind, data)
         except Exception as exc:  # noqa: BLE001
             logger.exception("stream_run failed")
@@ -502,6 +558,32 @@ class RMFAgent:
 
     async def close(self) -> None:
         await self._http.aclose()
+
+
+def with_history(command: str, history: list[dict[str, Any]] | None) -> str:
+    """Prefix earlier chat turns to the request, so a follow-up such as "send the other one too" makes
+    sense. Works for every provider because they all start from one user message. Only the newest
+    turns that fit are kept, and the model is told the old ones are context, not orders to repeat."""
+    lines: list[str] = []
+    for item in history or []:
+        role = "Operator" if item.get("role") == "user" else "Assistant"
+        text = " ".join(str(item.get("text", "")).split())
+        if text:
+            lines.append(f"{role}: {text[:_HISTORY_TURN_CHARS]}")
+    kept: list[str] = []
+    used = 0
+    for line in reversed(lines[-_HISTORY_MAX_TURNS:]):
+        if used + len(line) > _HISTORY_MAX_CHARS:
+            break
+        kept.append(line)
+        used += len(line)
+    if not kept:
+        return command
+    context = "\n".join(reversed(kept))
+    return (
+        "Earlier in this conversation (context only: do not repeat those actions unless asked):\n"
+        f"{context}\n\nCurrent request: {command}"
+    )
 
 
 def _sse(event: str, data: Any) -> str:

@@ -24,7 +24,7 @@ import re
 import time
 import urllib.parse
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, Query, Request
@@ -155,8 +155,14 @@ class ConfirmationCreate(BaseModel):
     detail: str = ""
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(..., max_length=2000)
+
+
 class AgentCommand(BaseModel):
     command: str = Field(..., min_length=1, max_length=2000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=16)  # earlier turns of the chat, oldest first
 
 
 # ---------------------------------------------------------------------------
@@ -1055,7 +1061,10 @@ async def agent_command(body: AgentCommand):
     async def relay():
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=3.0)) as http:
-                async with http.stream("GET", url, params={"command": body.command}) as resp:
+                params = {"command": body.command}
+                if body.history:
+                    params["history"] = json.dumps([t.model_dump() for t in body.history[-8:]])
+                async with http.stream("GET", url, params=params) as resp:
                     if resp.status_code != 200:
                         yield _sse(
                             "done",
