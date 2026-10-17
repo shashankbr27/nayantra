@@ -4,6 +4,11 @@ This guide walks you from a fresh clone to a working agent driving robots in
 NVIDIA Isaac Sim. Total time on a properly-spec'd machine: **~30 minutes**
 (plus Isaac Sim download time).
 
+> **Shortcut.** `./nayantra.sh setup` installs ROS 2, Nav2 and the simulator you choose
+> (Isaac Sim, Gazebo, or whichever suits the machine; `./nayantra.sh detect` shows which),
+> and `./nayantra.sh start` brings the whole stack up. See "Choosing a Simulator" in the
+> README. The steps below are the manual route, one piece at a time.
+
 ---
 
 ## 1. Prerequisites

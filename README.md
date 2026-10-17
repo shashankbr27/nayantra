@@ -4,6 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)](https://www.python.org/)
 [![ROS 2 Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-orange.svg)](https://docs.ros.org/)
 [![Isaac Sim 6.0+](https://img.shields.io/badge/Isaac%20Sim-6.0%2B-brightgreen.svg)](https://developer.nvidia.com/isaac-sim)
+[![Gazebo Harmonic](https://img.shields.io/badge/Gazebo-Harmonic-F58113.svg)](https://gazebosim.org/)
 
 > **Say what you want done. Nayantra decides who does it, which way they go, and whether it is safe, then explains why.**
 
@@ -262,7 +263,7 @@ nayantra/
 │   ├── .env.example
 │   └── tools.json          # Generated tool definitions
 ├── docker/                 # Dockerfile.core · .mcp · .agent · compose
-├── tests/                  # Pytest suite (245 tests; tests/core = platform)
+├── tests/                  # Pytest suite (257 tests; tests/core = platform)
 ├── docs/
 ├── scripts/
 └── pyproject.toml
@@ -286,34 +287,62 @@ nayantra-core --scenario isaac_carter
 `bash scripts/run_demo.sh check` verifies ROS 2, Nav2 and the topics.
 `scripts/install_isaac_pip.sh` installs Isaac Sim 6.0 from pip without Docker.
 
+Or one command for all of it: `./nayantra.sh setup --sim isaac`, then `./nayantra.sh start`
+(see [Choosing a Simulator](#-choosing-a-simulator-gazebo-isaac-sim-or-stub-mode)).
+
 ---
 
-## 🧪 Simulation Backends: Gazebo and Stub Mode
+## 🧪 Choosing a Simulator: Gazebo, Isaac Sim or Stub Mode
 
-This branch (`feat/stub-gazebo`) adds two backends that `dev` deliberately does
-not carry.
+`./nayantra.sh setup` asks which simulator to install, or checks the machine and
+chooses for you:
 
-| Backend | Needs | What it is for |
+| Choice | Needs | What you get |
 |---|---|---|
-| **Gazebo** (Harmonic) | ROS 2 Humble or Jazzy, Nav2, `ros_gz` | Open-source multi-robot simulation. Each robot is a Nav2 robot under its own namespace, driven by the same `Nav2Adapter` as Isaac Sim and hardware. |
-| **Stub mode** | nothing (Python only) | Development, tests and UI work. Robots come from the core's built-in kinematic simulator. |
+| **Auto** (the default) | nothing | Checks the OS, GPU, memory and disk, then picks Isaac Sim or Gazebo (rule below). |
+| **Gazebo** (Harmonic) | Ubuntu 22.04 / 24.04, or Windows 11 with WSL2; 8 GB RAM; about 10 GB disk | Open-source multi-robot simulation: three UGVs in a warehouse, each a Nav2 robot under its own namespace, driven by the same `Nav2Adapter` as Isaac Sim and hardware. Runs on a laptop. |
+| **Isaac Sim** (6.0+) | native Ubuntu 22.04 / 24.04; an RTX GPU with 16 GB VRAM; 32 GB RAM; 50 GB disk | Photoreal NVIDIA simulator with the Carter robot, streamed to the Isaac Sim WebRTC client. A 10–20 GB download. |
+| **Stub mode** | nothing (Python only) | Development, tests and UI work. Robots come from the core's built-in kinematic simulator. No setup. |
+
+**What Auto picks.** Isaac Sim only when the machine meets NVIDIA's published minimum for
+it ([requirements](https://docs.isaacsim.omniverse.nvidia.com/6.0.1/installation/requirements.html):
+native Ubuntu, a GPU with RT cores and 16 GB VRAM, 32 GB RAM, 50 GB disk), Gazebo otherwise.
+Windows always gets Gazebo, because Isaac Sim does not run in WSL2. A machine just under the
+minimum can still choose Isaac Sim explicitly, with a warning; one that cannot run it is told why.
+Before an Isaac Sim download, Auto asks (`--yes` answers for you). An Isaac Sim install that is
+already on the machine is found and reused, not downloaded again.
 
 ```bash
-# Gazebo: two terminals, same ROS_DOMAIN_ID
-bash scripts/run_gazebo.sh sim        # Gazebo + bridge + Nav2 per robot
-bash scripts/run_gazebo.sh core       # nayantra-core --scenario gazebo_warehouse
+# Linux, or Windows via WSL2 (PowerShell `.\nayantra`, Git Bash `./nayantra.sh`)
+./nayantra.sh detect               # what this machine can run, and why. Changes nothing
+./nayantra.sh setup                # once: menu of Auto / Gazebo / Isaac Sim, then installs your pick
+./nayantra.sh setup --sim isaac    # or gazebo, or auto. --yes skips questions, --dry-run only shows the plan
+./nayantra.sh start                # the chosen simulator + Nav2, core, dashboard → http://localhost:8000/
+./nayantra.sh start --sim gazebo   # run the other one for this session
+./nayantra.sh stop                 # also: gui · restart · status · logs · doctor
 
 # Stub mode
-nayantra-core                         # warehouse_demo: 4 fleets, 16 simulated robots
+nayantra-core                      # warehouse_demo: 4 fleets, 16 simulated robots
 ```
 
-The Gazebo world is generated from the Nayantra map, so the planning world and
-the physical world cannot drift apart. Architecture, frames and limits:
+Commands given on the dashboard go core → Nav2 → simulator, and the robots' poses
+flow back the same way. With **Gazebo**, `start` opens the Gazebo window; the world is
+generated from the Nayantra map, so the planning world and the physical world cannot
+drift apart. With **Isaac Sim**, `start` launches Isaac Sim headless (connect the Isaac Sim
+WebRTC Streaming Client to the address it prints), Nav2, and the core on the `isaac_carter`
+scenario; `scripts/run_demo.sh` still runs the same pieces one at a time. Architecture,
+frames, launcher details and limits:
 [docs/gazebo_architecture.md](docs/gazebo_architecture.md). Stub mode:
 [docs/stub_mode.md](docs/stub_mode.md).
 
-> The Gazebo assets are consistency-tested in CI but **not yet run against a
-> live Gazebo + Nav2**. `bash scripts/run_gazebo.sh check` reports each piece.
+> **Tested live** on Gazebo Harmonic + Nav2 under ROS 2 **Jazzy** (Ubuntu 24.04 in
+> WSL2, RTX 3050 laptop): three robots driven from the dashboard API with Gazebo's
+> own physics confirming each move.
+>
+> **Not yet tested live:** driving Isaac Sim from the dashboard (the core's Nav2 adapter has
+> run against Gazebo, not Isaac Sim; the `run_demo.sh` demo has run on an RTX 6000 Ada),
+> and ROS 2 Humble. The Isaac Sim start/stop sequence is covered by tests that stand in for
+> Isaac Sim, because it cannot run on the development laptop.
 
 ---
 
