@@ -1,6 +1,6 @@
 {
   "name": "Gazebo Warehouse + Nav2",
-  "description": "Two UGVs in a Gazebo Harmonic warehouse, each with its own Nav2 stack under /ugv_01 and /ugv_02 (bash scripts/run_gazebo.sh sim). Needs ROS 2 sourced in the core's shell, same ROS_DOMAIN_ID.",
+  "description": "Three UGVs in a Gazebo Harmonic warehouse, each with its own Nav2 stack under /ugv_01, /ugv_02 and /ugv_03 (bash scripts/run_gazebo.sh sim). Needs ROS 2 sourced in the core's shell, same ROS_DOMAIN_ID.",
   "maps": [
     "../maps/gazebo_warehouse.json"
   ],
@@ -100,6 +100,31 @@
       },
       "spawn": {
         "waypoint_id": "ship_dock",
+        "battery_pct": 100
+      }
+    },
+    {
+      "id": "ugv_03",
+      "name": "GZ UGV-3",
+      "fleet_id": "gazebo_fleet",
+      "manufacturer": "Nayantra",
+      "model": "nayantra_ugv",
+      "navigation": {
+        "map_id": "gazebo_warehouse",
+        "namespace": "ugv_03",
+        "frame": "map",
+        "base_frame": "base_link",
+        "odom_source": "odom",
+        "sensors": [
+          "lidar_2d"
+        ]
+      },
+      "physical": {
+        "payload_kg": 50,
+        "turning_radius": 0.0
+      },
+      "spawn": {
+        "waypoint_id": "charger",
         "battery_pct": 100
       }
     }

@@ -57,7 +57,7 @@ case "${1:-}" in
     printf "  gz:          "; command -v gz >/dev/null 2>&1 && gz sim --versions 2>/dev/null | head -1 || echo "MISSING"
     printf "  nav2_bringup:"; ros2 pkg prefix nav2_bringup >/dev/null 2>&1 && echo " OK" || echo " MISSING"
     printf "  ros_gz_sim:  "; ros2 pkg prefix ros_gz_sim >/dev/null 2>&1 && echo "OK" || echo "MISSING"
-    for ns in ugv_01 ugv_02; do
+    for ns in ugv_01 ugv_02 ugv_03; do
       printf "  /%s/odom: " "$ns"; ros2 topic info "/$ns/odom" 2>/dev/null | grep -m1 "Publisher count" || echo "no publisher"
     done
     ;;

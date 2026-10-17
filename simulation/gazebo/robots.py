@@ -13,7 +13,7 @@ MODEL_TEMPLATE = GZ_DIR / "models" / "nayantra_ugv.sdf.in"
 
 #: "name:x:y:yaw" — names are the ROS namespaces and the robot ids in
 #: config/scenarios/gazebo_warehouse.json; x, y are the spawn waypoints' map coordinates.
-DEFAULT_ROBOTS = "ugv_01:-10.5:0:0,ugv_02:10.5:0:3.14159"
+DEFAULT_ROBOTS = "ugv_01:-10.5:0:0,ugv_02:10.5:0:3.14159,ugv_03:-10.5:-5.5:0"
 
 
 def parse_robots(spec: str) -> list[tuple[str, float, float, float]]:

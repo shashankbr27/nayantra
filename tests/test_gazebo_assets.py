@@ -156,7 +156,7 @@ def test_core_loads_the_gazebo_scenario():
     core = NayantraCore(db_path=":memory:", scenario="gazebo_warehouse")
     with TestClient(create_app(core)) as c:
         rs = c.get("/api/v1/robots").json()
-        assert {r["id"] for r in rs} == {"ugv_01", "ugv_02"}
+        assert {r["id"] for r in rs} == {"ugv_01", "ugv_02", "ugv_03"}
         m = c.get("/api/v1/maps/gazebo_warehouse")
         assert m.status_code == 200
         assert len(m.json()["waypoints"]) == len(MAP["waypoints"])
