@@ -114,50 +114,17 @@ class OpenRMFClient:
     # ------------------------------------------------------------------
 
     async def get_fleets(self) -> Any:
+        # No fleet is fabricated in debug mode: a real fleet only appears once a
+        # fleet adapter (Isaac Sim / Gazebo / real robot) is subscribed to RMF.
+        # Returning empty is the honest stub state — "no fleet connected yet".
         if self.debug:
-            return self._sim(
-                [
-                    {
-                        "name": "turtlebot_fleet",
-                        "robots": {
-                            "turtlebot3_1": {
-                                "name": "turtlebot3_1",
-                                "status": "idle",
-                                "task_id": "",
-                                "battery": 0.94,
-                                "location": {"x": 0.0, "y": 0.0, "yaw": 0.0, "level_name": "L1"},
-                            },
-                            "turtlebot3_2": {
-                                "name": "turtlebot3_2",
-                                "status": "charging",
-                                "task_id": "",
-                                "battery": 0.61,
-                                "location": {"x": 3.2, "y": 1.5, "yaw": 0.0, "level_name": "L1"},
-                            },
-                            "turtlebot3_3": {
-                                "name": "turtlebot3_3",
-                                "status": "working",
-                                "task_id": "sim-task-001",
-                                "battery": 0.78,
-                                "location": {"x": -3.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
-                            },
-                        },
-                    }
-                ]
-            )
+            return self._sim([])
         return await self._get("/fleets")
 
     async def get_robot_state(self, fleet_name: str, robot_name: str) -> Any:
+        # No fabricated robot in debug mode — there is no subscribed fleet yet.
         if self.debug:
-            return self._sim(
-                {
-                    "name": robot_name,
-                    "fleet": fleet_name,
-                    "status": "idle",
-                    "battery": 0.9,
-                    "location": {"x": 1.0, "y": 2.0, "yaw": 0.0, "level_name": "L1"},
-                }
-            )
+            return self._sim(None)
         return await self._get(f"/fleets/{fleet_name}/robots/{robot_name}")
 
     async def get_fleet_log(self, fleet_name: str) -> Any:
@@ -186,7 +153,13 @@ class OpenRMFClient:
 
     async def get_task_state(self, task_id: str) -> Any:
         if self.debug:
-            return self._sim({"task_id": task_id, "status": "underway", "progress": "50%"})
+            return self._sim(
+                {
+                    "task_id": task_id,
+                    "status": "unknown",
+                    "detail": "no Open-RMF server in debug mode",
+                }
+            )
         return await self._get(f"/tasks/{task_id}/state")
 
     async def get_task_log(self, task_id: str) -> Any:
@@ -223,14 +196,16 @@ class OpenRMFClient:
     # Doors
     # ------------------------------------------------------------------
 
+    # Debug mode never invents infrastructure: it answers "nothing configured".
+
     async def get_doors(self) -> Any:
         if self.debug:
-            return self._sim([{"name": "main_door", "current_mode": {"value": 0}}])
+            return self._sim([])
         return await self._get("/doors")
 
     async def get_door_state(self, door_name: str) -> Any:
         if self.debug:
-            return self._sim({"name": door_name, "current_mode": {"value": 0}})
+            return self._sim({"name": door_name, "error": "no Open-RMF server in debug mode"})
         return await self._get(f"/doors/{door_name}/state")
 
     async def post_door_request(self, door_name: str, payload: dict[str, Any]) -> Any:
@@ -244,22 +219,12 @@ class OpenRMFClient:
 
     async def get_lifts(self) -> Any:
         if self.debug:
-            return self._sim(
-                [{"name": "lift_1", "current_floor": "L1", "available_floors": ["L1", "L2", "L3"]}]
-            )
+            return self._sim([])
         return await self._get("/lifts")
 
     async def get_lift_state(self, lift_name: str) -> Any:
         if self.debug:
-            return self._sim(
-                {
-                    "name": lift_name,
-                    "current_floor": "L1",
-                    "destination_floor": "L1",
-                    "door_state": {"value": 0},
-                    "motion_state": {"value": 0},
-                }
-            )
+            return self._sim({"name": lift_name, "error": "no Open-RMF server in debug mode"})
         return await self._get(f"/lifts/{lift_name}/state")
 
     async def post_lift_request(self, lift_name: str, payload: dict[str, Any]) -> Any:
@@ -308,30 +273,8 @@ class OpenRMFClient:
 
     async def get_building_map(self) -> Any:
         if self.debug:
-            # Vertices mirror WAREHOUSE_WAYPOINTS in ros2_adapter/fleet_adapter.py
-            # so the dashboard map matches what the fleet adapter recognises.
-            vertices = [
-                {"x": -5.0, "y": -2.0, "name": "charging_dock"},
-                {"x": -3.0, "y": 2.0, "name": "zone_a"},
-                {"x": 3.0, "y": 2.0, "name": "zone_b"},
-                {"x": 0.0, "y": -2.0, "name": "zone_c"},
-                {"x": -5.0, "y": 2.0, "name": "pick_station_1"},
-                {"x": 5.0, "y": -2.0, "name": "drop_station_1"},
-                {"x": 0.0, "y": 0.0, "name": "elevator_lobby"},
-                {"x": -6.0, "y": 0.0, "name": "entrance"},
-            ]
-            return self._sim(
-                {
-                    "name": "SimWarehouse",
-                    "levels": [
-                        {
-                            "name": "L1",
-                            "elevation": 0.0,
-                            "nav_graphs": [{"name": "0", "vertices": vertices, "edges": []}],
-                        }
-                    ],
-                }
-            )
+            # The authoritative map lives in the Nayantra Core (GET /api/v1/maps).
+            return self._sim({"name": "debug (no Open-RMF server)", "levels": []})
         return await self._get("/building_map")
 
     # ------------------------------------------------------------------
@@ -340,10 +283,10 @@ class OpenRMFClient:
 
     async def get_dispensers(self) -> Any:
         if self.debug:
-            return self._sim([{"guid": "dispenser_1", "type": "dispenser"}])
+            return self._sim([])
         return await self._get("/dispensers")
 
     async def get_ingestors(self) -> Any:
         if self.debug:
-            return self._sim([{"guid": "ingestor_1", "type": "ingestor"}])
+            return self._sim([])
         return await self._get("/ingestors")

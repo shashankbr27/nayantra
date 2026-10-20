@@ -31,9 +31,12 @@ async def test_get_fleets_returns_list(client):
 
 
 async def test_get_robot_state_debug(client):
+    # Honest stub: debug mode fabricates no robot (no fleet subscribed yet), so
+    # data is None. Assert the response envelope is well-formed instead.
     result = await client.get_robot_state("turtlebot_fleet", "tb3_1")
-    data = result.get("data", result)
-    assert data is not None
+    assert result["source"] == "simulated"
+    assert "data" in result
+    assert result["data"] is None
 
 
 # ---------------------------------------------------------------------------

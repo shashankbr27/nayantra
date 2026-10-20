@@ -162,6 +162,15 @@
     .step-tool .step-num { color: var(--muted); margin-right: 6px; font-weight: 500; }
     .step-ms { grid-row: 1; grid-column: 3; font-size: 11px; color: var(--muted); white-space: nowrap; align-self: center; }
 
+    .step-api {
+      grid-column: 2 / 4;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--muted); padding: 2px 0;
+    }
+    .step-api .label  { color: var(--muted);  margin-right: 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .step-api .method { color: var(--accent2); font-weight: 700; margin-right: 6px; }
+    .step-api .path   { color: var(--text); }
+
     .step-params, .step-result, .step-error {
       grid-column: 2 / 4;
       font-family: var(--mono);
@@ -260,7 +269,7 @@
     </svg>
     Nayantra
   </div>
-  <div class="sub">Agent trace · tools selected and called</div>
+  <div class="sub">Stub mode · command → MCP tools → RMF API calls → outcome</div>
   <div class="status-pill">
     <div class="dot" id="connDot"></div>
     <span id="connLabel">Disconnected</span>
@@ -289,7 +298,7 @@
   </div>
 
   <div class="trace" id="traceBox" style="display:none;">
-    <h2 id="traceTitle">MCP Tool Trace</h2>
+    <h2 id="traceTitle">MCP Tools &amp; RMF API Calls</h2>
     <div id="stepsList"></div>
   </div>
 
@@ -348,6 +357,57 @@ function setConnected(ok, label='') {
 }
 
 // ═════════════════════════════════════════════════════════════════════
+// TOOL -> RMF API ENDPOINT MAP
+//
+// Mirrors the `api_endpoint` field of each tool in nayantra/mcp/tools.py.
+// Lets the trace show the underlying REST call each MCP tool makes, with
+// {path_params} substituted from the actual call parameters.
+// ═════════════════════════════════════════════════════════════════════
+const TOOL_ENDPOINTS = {
+  list_robots:        'GET /fleets',
+  get_robot_status:   'GET /fleets/{fleet_name}/robots/{robot_name}',
+  get_fleet_log:      'GET /fleets/{fleet_name}/log',
+  decommission_robot: 'POST /fleets/{fleet_name}/decommission',
+  recommission_robot: 'POST /fleets/{fleet_name}/recommission',
+  dispatch_task:      'POST /tasks/dispatch_task',
+  move_robot:         'POST /tasks/dispatch_task',
+  stop_robot:         'POST /tasks/cancel_task',
+  get_task_state:     'GET /tasks/{task_id}/state',
+  list_tasks:         'GET /tasks',
+  get_task_log:       'GET /tasks/{task_id}/log',
+  cancel_task:        'POST /tasks/cancel_task',
+  resume_task:        'POST /tasks/resume_task',
+  interrupt_task:     'POST /tasks/interrupt_task',
+  list_doors:         'GET /doors',
+  get_door_state:     'GET /doors/{door_name}/state',
+  control_door:       'POST /doors/{door_name}/request',
+  list_lifts:         'GET /lifts',
+  get_lift_state:     'GET /lifts/{lift_name}/state',
+  request_lift:       'POST /lifts/{lift_name}/request',
+  list_alerts:        'GET /alerts',
+  get_alert:          'GET /alerts/{alert_id}',
+  respond_to_alert:   'POST /alerts/{alert_id}/response',
+  reset_fire_alarm:   'POST /fire_alarm_trigger/reset',
+  get_fire_alarm_state: 'GET /fire_alarm_trigger',
+  get_building_map:   'GET /building_map',
+  list_dispensers:    'GET /dispensers',
+  list_ingestors:     'GET /ingestors',
+};
+
+function apiHtml(tool, params) {
+  const ep = TOOL_ENDPOINTS[tool];
+  if (!ep) return '<span class="label">API</span><span class="path">(custom / no direct endpoint)</span>';
+  const sp = ep.indexOf(' ');
+  const method = ep.slice(0, sp);
+  let path = ep.slice(sp + 1);
+  if (params) {
+    path = path.replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? params[k] : m));
+  }
+  return `<span class="label">API</span><span class="method">${method}</span>`
+       + `<span class="path">${escHtml(path)}</span>`;
+}
+
+// ═════════════════════════════════════════════════════════════════════
 // PER-TOOL RESULT FORMATTERS
 //
 // Each function takes the raw `result` object (the MCP tool's response)
@@ -360,7 +420,7 @@ function setConnected(ok, label='') {
 const FORMATTERS = {
   list_robots(result) {
     const fleets = unwrap(result) || [];
-    if (!fleets.length) return 'No fleets configured.';
+    if (!fleets.length) return 'No fleet connected yet — no fleet adapter (sim or robot) is subscribed to RMF.';
     return fleets.map(f => {
       const names = Object.keys(f.robots || {});
       return `Fleet "${f.name}": ${names.length} robot(s)`
@@ -369,7 +429,8 @@ const FORMATTERS = {
   },
 
   get_robot_status(result) {
-    const r = unwrap(result) || {};
+    const r = unwrap(result);
+    if (!r) return 'No robot data — no fleet is subscribed yet.';
     const loc = r.location || {};
     const battery = typeof r.battery === 'number'
       ? `${Math.round(r.battery * 100)}%` : '?';
@@ -631,6 +692,7 @@ function addStepRow(index, tool, status) {
     <div class="step-icon ${status}" id="step-icon-${index}">${statusIcon(status)}</div>
     <div class="step-tool"><span class="step-num">${index + 1}.</span>${tool}</div>
     <div class="step-ms" id="step-ms-${index}">—</div>
+    <div class="step-api" id="step-api-${index}">${apiHtml(tool, null)}</div>
   `;
   document.getElementById('stepsList').appendChild(el);
 }
@@ -643,6 +705,10 @@ function fillStepRow(index, payload) {
   const ms   = document.getElementById(`step-ms-${index}`);
   if (icon) { icon.className = `step-icon ${payload.status}`; icon.innerHTML = statusIcon(payload.status); }
   if (ms)   ms.textContent = payload.duration_ms != null ? `${Math.round(payload.duration_ms)}ms` : '—';
+
+  // Fill in the API endpoint with actual path params now that we have them.
+  const apiEl = document.getElementById(`step-api-${index}`);
+  if (apiEl) apiEl.innerHTML = apiHtml(payload.tool, payload.parameters);
 
   // Strip any existing params/result/error blocks before re-rendering
   row.querySelectorAll('.step-params, .step-result, .step-error').forEach(n => n.remove());

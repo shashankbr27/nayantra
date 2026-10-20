@@ -1,1 +1,1 @@
-"""RMF-compatible control plane backed by the Nav2 fleet adapter."""
+"""Compatibility launcher: the RMF bridge now runs the Nayantra Core (see server.py)."""

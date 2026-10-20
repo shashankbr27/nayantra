@@ -35,7 +35,7 @@ _DASHBOARD = Path(__file__).resolve().parents[2] / "nayantra" / "api" / "dashboa
 
 @app.get("/v2/health")
 async def health_v2():
-    return {"status": "ok", "version": "2.0.0"}
+    return {"status": "ok", "version": "0.1.0"}
 
 
 @app.get("/favicon.ico", include_in_schema=False)

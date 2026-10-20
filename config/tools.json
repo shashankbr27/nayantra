@@ -1,211 +1,741 @@
 [
   {
-    "name": "list_robots",
-    "description": "List all robots registered across all fleets.",
+    "name": "list_fleets",
+    "description": "List all fleets with robot type, capabilities and live status counts.",
     "parameters": {},
+    "required": [],
+    "risk": "read",
     "api_endpoint": "GET /fleets"
   },
   {
-    "name": "get_robot_status",
-    "description": "Get the current status and pose of a specific robot.",
+    "name": "get_fleet_state",
+    "description": "Live state of one fleet and each of its robots.",
     "parameters": {
-      "fleet_name": { "type": "string", "description": "Name of the fleet" },
-      "robot_name": { "type": "string", "description": "Name of the robot" }
+      "fleet_id": {
+        "description": "Fleet id (from list_fleets)",
+        "type": "string"
+      }
     },
-    "api_endpoint": "GET /fleets/{fleet_name}/robots/{robot_name}"
+    "required": [
+      "fleet_id"
+    ],
+    "risk": "read",
+    "api_endpoint": "GET /fleets/{id}"
   },
   {
-    "name": "move_robot",
-    "description": "Command a robot to navigate to a named waypoint.",
+    "name": "list_robots",
+    "description": "List robots with live status, battery, location, current task and why they are in that state. Use this to answer 'which robots are available / charging / busy'.",
     "parameters": {
-      "fleet_name": { "type": "string", "description": "Fleet name" },
-      "robot_name": { "type": "string", "description": "Robot name" },
-      "waypoint":   { "type": "string", "description": "Named waypoint on the map" }
+      "fleet_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Only this fleet"
+      },
+      "status": {
+        "anyOf": [
+          {
+            "enum": [
+              "idle",
+              "moving",
+              "waiting",
+              "paused",
+              "charging",
+              "acting",
+              "error",
+              "emergency_stop",
+              "offline"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Only robots in this status (e.g. 'charging')"
+      }
     },
-    "api_endpoint": "POST /tasks/dispatch_task"
+    "required": [],
+    "risk": "read",
+    "api_endpoint": "GET /robots"
   },
   {
-    "name": "dispatch_task",
-    "description": "Dispatch a new task. Supports: navigate_to_waypoint, delivery, patrol, loop.",
+    "name": "get_robot_state",
+    "description": "Full live state of one robot: status, why it is waiting, route, ETA, battery, health, current task.",
     "parameters": {
-      "category":    { "type": "string", "description": "Task category" },
-      "description": { "type": "object", "description": "Task payload" },
-      "fleet_name":  { "type": "string", "description": "Target fleet (optional)" },
-      "robot_name":  { "type": "string", "description": "Target robot (optional)" },
-      "priority":    { "type": "integer","description": "0-9, default 0" }
+      "robot": {
+        "description": "Robot id or name, e.g. 'ugv_03' or 'UGV-03'",
+        "type": "string"
+      }
     },
-    "api_endpoint": "POST /tasks/dispatch_task"
+    "required": [
+      "robot"
+    ],
+    "risk": "read",
+    "api_endpoint": "GET /robots/{id}"
   },
   {
-    "name": "get_task_state",
-    "description": "Get the current state of a task by its ID.",
+    "name": "get_map",
+    "description": "The map: named places (waypoints), areas (zones such as 'receiving', 'storage', restricted areas) and graph size. Use it to resolve place names before creating tasks.",
     "parameters": {
-      "task_id": { "type": "string", "description": "Task ID" }
+      "map_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Map id; default = the map most robots use"
+      }
     },
-    "api_endpoint": "GET /tasks/{task_id}/state"
+    "required": [],
+    "risk": "read",
+    "api_endpoint": "GET /maps/{id}"
+  },
+  {
+    "name": "list_waypoints",
+    "description": "Named waypoints on a map, optionally filtered by type (e.g. 'charger').",
+    "parameters": {
+      "map_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "type": {
+        "anyOf": [
+          {
+            "enum": [
+              "location",
+              "charger",
+              "pickup",
+              "dropoff",
+              "dock",
+              "parking",
+              "landing_pad",
+              "inspection",
+              "intersection"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "required": [],
+    "risk": "read",
+    "api_endpoint": "GET /maps/{id}/waypoints"
+  },
+  {
+    "name": "create_task",
+    "description": "Create a structured task; Nayantra chooses the robot (capability, distance, battery, workload, traffic), plans the route and coordinates traffic. Places may be waypoint names or areas like 'receiving'/'storage'.",
+    "parameters": {
+      "task_type": {
+        "description": "What to do",
+        "enum": [
+          "navigate",
+          "delivery",
+          "patrol",
+          "inspect",
+          "charge",
+          "dock",
+          "takeoff",
+          "land"
+        ],
+        "type": "string"
+      },
+      "destination": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "navigate: waypoint or area name"
+      },
+      "pickup": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "delivery: pickup waypoint or area (e.g. 'receiving')"
+      },
+      "dropoff": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "delivery: dropoff waypoint or area (e.g. 'storage')"
+      },
+      "payload": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "delivery: what is carried"
+      },
+      "waypoints": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "patrol: places in order"
+      },
+      "rounds": {
+        "anyOf": [
+          {
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "patrol: repetitions"
+      },
+      "target": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "inspect/charge/dock/land: specific place (optional for charge/dock/land)"
+      },
+      "count": {
+        "default": 1,
+        "description": "How many identical tasks (e.g. 3 packages → 3)",
+        "maximum": 20,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "priority": {
+        "default": 5,
+        "description": "Traffic/queue priority, 9 = most urgent",
+        "maximum": 9,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "fleet_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Restrict to one fleet (optional)"
+      },
+      "robot": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "ONLY if the operator named a specific robot; otherwise leave empty so Nayantra allocates"
+      }
+    },
+    "required": [
+      "task_type"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /tasks"
+  },
+  {
+    "name": "get_task_status",
+    "description": "Status of a task with the reasons: why it is waiting, why this robot was selected, steps, recent trace.",
+    "parameters": {
+      "task_id": {
+        "description": "Task id, e.g. 'T-0007'",
+        "type": "string"
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "risk": "read",
+    "api_endpoint": "GET /tasks/{id}/trace"
   },
   {
     "name": "list_tasks",
-    "description": "Query all active and completed tasks.",
-    "parameters": {},
+    "description": "List tasks (open ones by default) with status and reasons.",
+    "parameters": {
+      "status": {
+        "anyOf": [
+          {
+            "enum": [
+              "active",
+              "queued",
+              "assigned",
+              "executing",
+              "waiting_for_traffic",
+              "waiting_for_robot",
+              "paused",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": "active",
+        "description": "'active' = every open task"
+      },
+      "robot": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "limit": {
+        "default": 20,
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      }
+    },
+    "required": [],
+    "risk": "read",
     "api_endpoint": "GET /tasks"
   },
   {
-    "name": "get_task_log",
-    "description": "Retrieve the detailed event log for a task.",
+    "name": "pause_task",
+    "description": "Pause a task (the robot stops where it is; resume later).",
     "parameters": {
-      "task_id": { "type": "string", "description": "Task ID" }
+      "task_id": {
+        "description": "Task id, e.g. 'T-0007'",
+        "type": "string"
+      }
     },
-    "api_endpoint": "GET /tasks/{task_id}/log"
-  },
-  {
-    "name": "cancel_task",
-    "description": "Cancel a pending or active task.",
-    "parameters": {
-      "task_id": { "type": "string", "description": "Task ID to cancel" }
-    },
-    "api_endpoint": "POST /tasks/cancel_task"
+    "required": [
+      "task_id"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /tasks/{id}/pause"
   },
   {
     "name": "resume_task",
     "description": "Resume a paused task.",
     "parameters": {
-      "task_id": { "type": "string", "description": "Task ID to resume" }
+      "task_id": {
+        "description": "Task id, e.g. 'T-0007'",
+        "type": "string"
+      }
     },
-    "api_endpoint": "POST /tasks/resume_task"
+    "required": [
+      "task_id"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /tasks/{id}/resume"
+  },
+  {
+    "name": "cancel_task",
+    "description": "Cancel a task.",
+    "parameters": {
+      "task_id": {
+        "description": "Task id, e.g. 'T-0007'",
+        "type": "string"
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /tasks/{id}/cancel"
+  },
+  {
+    "name": "navigate_robot",
+    "description": "Send a specific, operator-named robot to a place. Routing and traffic are handled by Nayantra. If the operator did not name a robot, use create_task instead.",
+    "parameters": {
+      "robot": {
+        "description": "Robot id or name the operator named",
+        "type": "string"
+      },
+      "destination": {
+        "description": "Waypoint or area name",
+        "type": "string"
+      },
+      "priority": {
+        "default": 5,
+        "maximum": 9,
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "robot",
+      "destination"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /robots/{id}/navigate"
   },
   {
     "name": "stop_robot",
-    "description": "Immediately cancel all active tasks for a robot.",
+    "description": "Stop one robot now and cancel its current task (queued work is re-allocated).",
     "parameters": {
-      "task_id": { "type": "string", "description": "Task ID to cancel" }
+      "robot": {
+        "description": "Robot id or name, e.g. 'ugv_03' or 'UGV-03'",
+        "type": "string"
+      }
     },
-    "api_endpoint": "POST /tasks/cancel_task"
+    "required": [
+      "robot"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /robots/{id}/stop"
   },
   {
-    "name": "list_doors",
-    "description": "List all doors in the building.",
+    "name": "emergency_stop_robot",
+    "description": "Emergency-stop one robot immediately (safety). Only an operator can release it.",
+    "parameters": {
+      "robot": {
+        "description": "Robot id or name, e.g. 'ugv_03' or 'UGV-03'",
+        "type": "string"
+      }
+    },
+    "required": [
+      "robot"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /robots/{id}/estop"
+  },
+  {
+    "name": "stop_all_robots",
+    "description": "Stop every robot (or one fleet). Requires operator confirmation in the dashboard.",
+    "parameters": {
+      "fleet_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Only this fleet; omit for every robot"
+      }
+    },
+    "required": [],
+    "risk": "dangerous",
+    "api_endpoint": "POST /robots/stop-all"
+  },
+  {
+    "name": "emergency_stop_all",
+    "description": "Emergency-stop every robot (or one fleet). Requires operator confirmation in the dashboard.",
+    "parameters": {
+      "fleet_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Only this fleet; omit for every robot"
+      }
+    },
+    "required": [],
+    "risk": "dangerous",
+    "api_endpoint": "POST /robots/estop-all"
+  },
+  {
+    "name": "send_to_charge",
+    "description": "Send a robot to the nearest free charger and charge it.",
+    "parameters": {
+      "robot": {
+        "description": "Robot id or name, e.g. 'ugv_03' or 'UGV-03'",
+        "type": "string"
+      }
+    },
+    "required": [
+      "robot"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /robots/{id}/charge"
+  },
+  {
+    "name": "get_traffic_state",
+    "description": "Traffic coordination: who is waiting for whom and why, reservations per robot, recent conflicts and how they were resolved.",
     "parameters": {},
-    "api_endpoint": "GET /doors"
+    "required": [],
+    "risk": "read",
+    "api_endpoint": "GET /traffic"
   },
   {
-    "name": "get_door_state",
-    "description": "Get the current open/closed state of a named door.",
-    "parameters": {
-      "door_name": { "type": "string", "description": "Door name" }
-    },
-    "api_endpoint": "GET /doors/{door_name}/state"
-  },
-  {
-    "name": "control_door",
-    "description": "Open or close a named door. mode: 0=closed, 2=open.",
-    "parameters": {
-      "door_name": { "type": "string",  "description": "Door name" },
-      "mode":      { "type": "integer", "description": "0=closed, 2=open" }
-    },
-    "api_endpoint": "POST /doors/{door_name}/request"
-  },
-  {
-    "name": "list_lifts",
-    "description": "List all lifts (elevators) in the building.",
+    "name": "get_active_conflicts",
+    "description": "Predicted/resolved traffic conflicts (head-on, intersection, bottleneck …) with resolutions.",
     "parameters": {},
-    "api_endpoint": "GET /lifts"
+    "required": [],
+    "risk": "read",
+    "api_endpoint": "GET /traffic/conflicts"
   },
   {
-    "name": "get_lift_state",
-    "description": "Get current floor and mode of a named lift.",
+    "name": "list_events",
+    "description": "Recent events (optionally for one robot or task) — the observability trail.",
     "parameters": {
-      "lift_name": { "type": "string", "description": "Lift name" }
+      "robot": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "task_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "limit": {
+        "default": 20,
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      }
     },
-    "api_endpoint": "GET /lifts/{lift_name}/state"
-  },
-  {
-    "name": "request_lift",
-    "description": "Call a lift to a destination floor.",
-    "parameters": {
-      "lift_name":         { "type": "string",  "description": "Lift name" },
-      "destination_floor": { "type": "string",  "description": "Target floor label" },
-      "door_state":        { "type": "integer", "description": "0=closed, 2=open" }
-    },
-    "api_endpoint": "POST /lifts/{lift_name}/request"
+    "required": [],
+    "risk": "read",
+    "api_endpoint": "GET /events"
   },
   {
     "name": "list_alerts",
-    "description": "List all active alerts in the system.",
+    "description": "Active alerts (battery low, offline, e-stop, restricted zone, task failures).",
     "parameters": {},
+    "required": [],
+    "risk": "read",
     "api_endpoint": "GET /alerts"
   },
   {
-    "name": "get_alert",
-    "description": "Get details of a specific alert.",
+    "name": "register_robot",
+    "description": "Register a robot into an existing fleet and run its connection test. (The dashboard wizard offers the full form.)",
     "parameters": {
-      "alert_id": { "type": "string", "description": "Alert ID" }
+      "name": {
+        "description": "Display name, e.g. 'UGV-05'",
+        "type": "string"
+      },
+      "fleet_id": {
+        "description": "Existing fleet id",
+        "type": "string"
+      },
+      "protocol": {
+        "default": "simulation",
+        "description": "How Nayantra talks to it",
+        "enum": [
+          "simulation",
+          "ros2",
+          "isaac_demo"
+        ],
+        "type": "string"
+      },
+      "spawn_waypoint": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "simulation: waypoint id to spawn at"
+      },
+      "namespace": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "ros2: namespace such as /ugv_05"
+      },
+      "endpoint": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "isaac_demo: control API URL"
+      },
+      "manufacturer": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "model": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
     },
-    "api_endpoint": "GET /alerts/{alert_id}"
+    "required": [
+      "name",
+      "fleet_id"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /robots"
   },
   {
-    "name": "respond_to_alert",
-    "description": "Acknowledge or respond to an alert.",
+    "name": "create_fleet",
+    "description": "Create a fleet (robot type, capabilities, map, speed limit).",
     "parameters": {
-      "alert_id": { "type": "string", "description": "Alert ID" },
-      "response": { "type": "string", "description": "Response: acknowledge | resume | cancel" }
+      "name": {
+        "type": "string"
+      },
+      "robot_type": {
+        "enum": [
+          "ugv",
+          "uav",
+          "quadruped",
+          "humanoid",
+          "other"
+        ],
+        "type": "string"
+      },
+      "capabilities": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "map_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "max_speed": {
+        "anyOf": [
+          {
+            "exclusiveMinimum": 0,
+            "maximum": 6,
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
     },
-    "api_endpoint": "POST /alerts/{alert_id}/response"
+    "required": [
+      "name",
+      "robot_type"
+    ],
+    "risk": "act",
+    "api_endpoint": "POST /fleets"
   },
   {
-    "name": "reset_fire_alarm",
-    "description": "Reset the fire alarm trigger after it has been addressed.",
-    "parameters": {},
-    "api_endpoint": "POST /fire_alarm_trigger/reset"
-  },
-  {
-    "name": "get_fire_alarm_state",
-    "description": "Check whether the fire alarm has been triggered.",
-    "parameters": {},
-    "api_endpoint": "GET /fire_alarm_trigger"
-  },
-  {
-    "name": "get_building_map",
-    "description": "Retrieve the building map including levels, waypoints, and lanes.",
-    "parameters": {},
-    "api_endpoint": "GET /building_map"
-  },
-  {
-    "name": "list_dispensers",
-    "description": "List all dispenser (payload drop-off) stations.",
-    "parameters": {},
-    "api_endpoint": "GET /dispensers"
-  },
-  {
-    "name": "list_ingestors",
-    "description": "List all ingestor (payload pick-up) stations.",
-    "parameters": {},
-    "api_endpoint": "GET /ingestors"
-  },
-  {
-    "name": "get_fleet_log",
-    "description": "Retrieve the event log for a named fleet.",
+    "name": "remove_robot",
+    "description": "Remove a robot from its fleet. Requires operator confirmation in the dashboard.",
     "parameters": {
-      "fleet_name": { "type": "string", "description": "Fleet name" }
+      "robot": {
+        "description": "Robot id or name, e.g. 'ugv_03' or 'UGV-03'",
+        "type": "string"
+      }
     },
-    "api_endpoint": "GET /fleets/{fleet_name}/log"
-  },
-  {
-    "name": "decommission_robot",
-    "description": "Remove a robot from active duty in its fleet.",
-    "parameters": {
-      "fleet_name": { "type": "string", "description": "Fleet name" },
-      "robot_name": { "type": "string", "description": "Robot name" }
-    },
-    "api_endpoint": "POST /fleets/{fleet_name}/decommission"
-  },
-  {
-    "name": "recommission_robot",
-    "description": "Return a decommissioned robot to active duty.",
-    "parameters": {
-      "fleet_name": { "type": "string", "description": "Fleet name" },
-      "robot_name": { "type": "string", "description": "Robot name" }
-    },
-    "api_endpoint": "POST /fleets/{fleet_name}/recommission"
+    "required": [
+      "robot"
+    ],
+    "risk": "dangerous",
+    "api_endpoint": "DELETE /robots/{id}"
   }
 ]

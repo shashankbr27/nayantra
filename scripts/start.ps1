@@ -2,23 +2,26 @@
 # scripts/start.ps1 -- launch the Nayantra stack (Windows / PowerShell)
 #
 # Mirrors scripts/start.sh. Starts three background processes:
-#   1. RMF stub server      (port 8000)
-#   2. MCP server           (port 7000)
-#   3. Agent API v2         (port 8080)
+#   1. Nayantra Core        (port 8000)  control plane + operator UI
+#   2. MCP server           (port 7000)  the LLM's tools
+#   3. Agent API v2         (port 8080)  natural-language agent
 #
 # PIDs are written to runtime\pids\*.pid; logs to runtime\logs\*.log.
 # Use scripts\stop.ps1 to terminate all services cleanly.
 #
 # Usage:
-#   .\scripts\start.ps1                # full stack with stub
-#   .\scripts\start.ps1 -NoStub        # skip the RMF stub
+#   .\scripts\start.ps1                # full stack
+#   .\scripts\start.ps1 -NoCore        # core runs elsewhere (NAYANTRA_CORE_URL)
 #   .\scripts\start.ps1 -V1            # use agent API v1 (no WebSocket)
+#   (-NoStub is accepted as a deprecated alias of -NoCore)
 # =============================================================================
 
 param(
+    [switch]$NoCore,
     [switch]$NoStub,
     [switch]$V1
 )
+if ($NoStub) { $NoCore = $true }
 
 $ErrorActionPreference = "Stop"
 $PROJECT_ROOT = (Resolve-Path "$PSScriptRoot\..").Path
@@ -71,8 +74,10 @@ function Start-NayantraService {
 }
 
 function Wait-Healthy {
-    param([string]$Name, [string]$Url, [int]$TimeoutSec = 30)
-    Info "Waiting for $Name @ $Url ..."
+    # 120s: a cold start on Windows imports heavy libs (anthropic, openai,
+    # google-genai, fastapi, uvicorn) which can take well over 30s the first time.
+    param([string]$Name, [string]$Url, [int]$TimeoutSec = 120)
+    Info "Waiting for $Name @ $Url (first start can take ~60-90s) ..."
     for ($i = 0; $i -lt $TimeoutSec; $i++) {
         try {
             $r = Invoke-WebRequest -Uri $Url -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
@@ -82,27 +87,35 @@ function Wait-Healthy {
     Warn "$Name did not become healthy within ${TimeoutSec}s, check runtime\logs\$Name.*.log"
 }
 
-# --- 1. RMF stub -------------------------------------------------------------
-if (-not $NoStub) {
-    Start-NayantraService "rmf-stub" @("docker\rmf_stub_server.py") 8000
-    Wait-Healthy "rmf-stub" "http://localhost:8000/health"
+# --- Launch ALL services first (concurrently) --------------------------------
+# They don't need each other UP to start importing: the MCP client and the
+# agent connect lazily on first use. Launching all three at once overlaps their
+# cold-start imports, so total startup ~= the slowest single one, not the sum.
+if (-not $NoCore) {
+    if (-not (Test-Path "web\dist\index.html") -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Info "Building the operator UI (first run) ..."
+        npm --prefix web install --no-audit --no-fund | Out-Null
+        npm --prefix web run build | Out-Null
+    }
+    Start-NayantraService "core" @("-m","nayantra.core.server") 8000
 }
-
-# --- 2. MCP server -----------------------------------------------------------
 Start-NayantraService "mcp-server" @("-m","nayantra.mcp.server") 7000
-Wait-Healthy "mcp-server" "http://localhost:7000/health"
-
-# --- 3. Agent API ------------------------------------------------------------
 Start-NayantraService "agent-api" @("-m","uvicorn","${apiModule}:app","--host","127.0.0.1","--port","8080") 8080
+
+# --- Then wait for health (imports are now happening in parallel) ------------
+if (-not $NoCore) {
+    Wait-Healthy "core" "http://localhost:8000/api/v1/health"
+}
+Wait-Healthy "mcp-server" "http://localhost:7000/health"
 Wait-Healthy "agent-api" "http://localhost:8080/health"
 
 Write-Host ""
 Info "All services launched."
 Write-Host ""
-Write-Host "  Dashboard:    http://localhost:8080/"
-Write-Host "  Agent API:    http://localhost:8080/docs"
+Write-Host "  Operator UI:  http://localhost:8000/"
+Write-Host "  Core API:     http://localhost:8000/docs"
 Write-Host "  MCP Server:   http://localhost:7000/tools"
-Write-Host "  WebSocket:    ws://localhost:8080/ws/fleet"
+Write-Host "  Agent API:    http://localhost:8080/docs"
 Write-Host ""
 Write-Host "  Logs:   runtime\logs\*.log"
 Write-Host "  Stop:   .\scripts\stop.ps1"

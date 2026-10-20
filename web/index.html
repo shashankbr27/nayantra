@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="alternate icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Nayantra — Operations</title>
+    <script>
+      /* Apply the saved theme before first paint so a light-mode reload doesn't flash black. */
+      try {
+        var t = JSON.parse(localStorage.getItem("nayantra.theme") || '"dark"');
+        document.documentElement.dataset.theme = t;
+        var i = document.querySelector('link[rel="icon"][type="image/svg+xml"]');
+        if (i) i.href = "/favicon-" + t + ".svg";
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", t === "dark" ? "#000000" : "#ffffff");
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

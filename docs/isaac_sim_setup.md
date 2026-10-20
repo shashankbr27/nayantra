@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - NVIDIA GPU with RTX capability
-- NVIDIA Isaac Sim 4.x installed via Omniverse Launcher
+- NVIDIA Isaac Sim 6.0 or newer (pip install, see `scripts/install_isaac_pip.sh`, or the NGC container)
 - `ISAAC_SIM_ENABLED=true` in `config/.env`
 
 ## Configuration

@@ -1,0 +1,322 @@
+{
+  "id": "isaac_warehouse",
+  "name": "Isaac Simple Warehouse",
+  "description": "Map frame of the Isaac Sim Simple_Warehouse scene used by the Carter + Nav2 demo (scripts/run_demo.sh). Waypoints consolidate the legacy tables from the RMF bridge, isaac_demo.py and nav_cli.py.",
+  "frame": "map",
+  "bounds": {
+    "min_x": -12,
+    "min_y": -8,
+    "max_x": 12,
+    "max_y": 8
+  },
+  "walls": [],
+  "obstacles": [],
+  "waypoints": [
+    {
+      "id": "elevator_lobby",
+      "name": "Elevator Lobby",
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [
+        "center",
+        "centre"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "zone_a",
+      "name": "Zone A",
+      "x": -3.0,
+      "y": 2.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [
+        "canteen"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "zone_b",
+      "name": "Zone B",
+      "x": 3.0,
+      "y": 2.0,
+      "z": 0.0,
+      "yaw": 3.1416,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [
+        "board_room"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "zone_c",
+      "name": "Zone C",
+      "x": 0.0,
+      "y": -2.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "charging_dock",
+      "name": "Charging Dock",
+      "x": -5.0,
+      "y": -2.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "charger",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "pick_station_1",
+      "name": "Pick Station 1",
+      "x": -5.0,
+      "y": 2.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "pickup",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "drop_station_1",
+      "name": "Drop Station 1",
+      "x": 5.0,
+      "y": -2.0,
+      "z": 0.0,
+      "yaw": 3.1416,
+      "type": "dropoff",
+      "layer": "ground",
+      "aliases": [
+        "store_room"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "entrance",
+      "name": "Entrance",
+      "x": -6.0,
+      "y": 0.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [
+        "main_gate"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "loading_dock",
+      "name": "Loading Dock",
+      "x": 6.0,
+      "y": -2.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "dock",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "meeting_room",
+      "name": "Meeting Room",
+      "x": 5.0,
+      "y": 2.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "shelf_1",
+      "name": "Shelf 1",
+      "x": 4.0,
+      "y": 3.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    },
+    {
+      "id": "shelf_2",
+      "name": "Shelf 2",
+      "x": -4.0,
+      "y": 3.0,
+      "z": 0.0,
+      "yaw": 0.0,
+      "type": "location",
+      "layer": "ground",
+      "aliases": [],
+      "metadata": {}
+    }
+  ],
+  "lanes": [
+    {
+      "id": "L_elevator_lobby_zone_a",
+      "from_id": "elevator_lobby",
+      "to_id": "zone_a",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_elevator_lobby_zone_b",
+      "from_id": "elevator_lobby",
+      "to_id": "zone_b",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_elevator_lobby_zone_c",
+      "from_id": "elevator_lobby",
+      "to_id": "zone_c",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_elevator_lobby_entrance",
+      "from_id": "elevator_lobby",
+      "to_id": "entrance",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_zone_a_pick_station_1",
+      "from_id": "zone_a",
+      "to_id": "pick_station_1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_zone_a_shelf_2",
+      "from_id": "zone_a",
+      "to_id": "shelf_2",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_zone_b_meeting_room",
+      "from_id": "zone_b",
+      "to_id": "meeting_room",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_zone_b_shelf_1",
+      "from_id": "zone_b",
+      "to_id": "shelf_1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_zone_c_charging_dock",
+      "from_id": "zone_c",
+      "to_id": "charging_dock",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_zone_c_drop_station_1",
+      "from_id": "zone_c",
+      "to_id": "drop_station_1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_drop_station_1_loading_dock",
+      "from_id": "drop_station_1",
+      "to_id": "loading_dock",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_entrance_charging_dock",
+      "from_id": "entrance",
+      "to_id": "charging_dock",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    },
+    {
+      "id": "L_entrance_pick_station_1",
+      "from_id": "entrance",
+      "to_id": "pick_station_1",
+      "bidirectional": true,
+      "speed_limit": null,
+      "width": null,
+      "layer": "ground",
+      "altitude": null,
+      "name": ""
+    }
+  ],
+  "zones": [],
+  "metadata": {
+    "source": "config/maps/isaac_warehouse.json",
+    "units": "m",
+    "isaac_scene": "/Isaac/Environments/Simple_Warehouse/warehouse.usd"
+  }
+}

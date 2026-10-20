@@ -6,9 +6,9 @@ Startup health checker and runtime readiness validator.
 Checks performed at startup:
   1. Config validation (required env vars present)
   2. MCP Server reachability
-  3. OpenRMF API reachability
-  4. Isaac Sim reachability (if ISAAC_SIM_ENABLED=true)
-  5. LLM provider connectivity (lightweight test call)
+  3. Nayantra Core reachability (the control plane the MCP tools act on)
+  4. Open-RMF API reachability (only with OPENRMF_INFRA_TOOLS=true)
+  5. Isaac Sim reachability (if ISAAC_SIM_ENABLED=true)
 
 Each check returns a HealthResult with status, message, and latency_ms.
 The aggregate is exposed at GET /readiness and logged at startup.
@@ -97,8 +97,10 @@ class HealthChecker:
         checks = [
             self._check_config(),
             self._check_mcp_server(),
-            self._check_rmf_api(),
+            self._check_core(),
         ]
+        if settings.OPENRMF_INFRA_TOOLS:
+            checks.append(self._check_rmf_api())
         if settings.ISAAC_SIM_ENABLED:
             checks.append(self._check_isaac_sim())
 
@@ -126,8 +128,10 @@ class HealthChecker:
             issues.append("OPENAI_API_KEY not set")
         if settings.LLM_PROVIDER == "gemini" and not settings.GEMINI_API_KEY:
             issues.append("GEMINI_API_KEY not set")
-        if not settings.OPENRMF_API_TOKEN:
-            issues.append("OPENRMF_API_TOKEN not set")
+        if settings.OPENRMF_INFRA_TOOLS and not settings.OPENRMF_API_TOKEN:
+            issues.append(
+                "OPENRMF_API_TOKEN not set (needed for the Open-RMF infrastructure tools)"
+            )
         if settings.USE_AUTH and settings.JWT_SECRET == "rmfisawesome":
             issues.append("JWT_SECRET is still the default — change it for production")
 
@@ -166,6 +170,25 @@ class HealthChecker:
             )
         except Exception as exc:
             return HealthResult("mcp_server", ok=False, message=str(exc))
+
+    async def _check_core(self) -> HealthResult:
+        """Check the Nayantra Core control plane is reachable."""
+        url = f"{settings.NAYANTRA_CORE_URL.rstrip('/')}/api/v1/health"
+        t0 = time.monotonic()
+        try:
+            resp = await self._http.get(url)
+            latency = round((time.monotonic() - t0) * 1000, 1)
+            if resp.status_code == 200:
+                return HealthResult("core", ok=True, message="Reachable", latency_ms=latency)
+            return HealthResult(
+                "core", ok=False, message=f"HTTP {resp.status_code}", latency_ms=latency
+            )
+        except Exception as exc:  # noqa: BLE001
+            return HealthResult(
+                "core",
+                ok=False,
+                message=f"Not reachable at {url} ({type(exc).__name__}); start nayantra-core",
+            )
 
     async def _check_rmf_api(self) -> HealthResult:
         """Check OpenRMF API is reachable."""

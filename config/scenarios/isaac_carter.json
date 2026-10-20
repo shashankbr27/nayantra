@@ -1,0 +1,82 @@
+{
+  "name": "Isaac Sim Carter + Nav2",
+  "description": "The OSRA demo robot: carter_v1 in Isaac Sim 6.0 driven through Nav2 (scripts/run_demo.sh isaac|nav2). Needs ROS 2 sourced in the core's shell; set ROS2_ENABLED=false to run the same fleet on the kinematic simulator instead.",
+  "maps": [
+    "../maps/isaac_warehouse.json"
+  ],
+  "fleets": [
+    {
+      "id": "warehouse_fleet",
+      "name": "Carter Fleet (Isaac + Nav2)",
+      "robot_type": "ugv",
+      "description": "NVIDIA carter_v1 in the Isaac Sim Simple_Warehouse, Nav2 Jazzy.",
+      "color": "#76b900",
+      "capabilities": [
+        "navigate",
+        "carry_payload",
+        "patrol",
+        "dock",
+        "charge"
+      ],
+      "navigation": {
+        "stack": "nav2",
+        "planner": "navfn (A*)",
+        "controller": "regulated_pure_pursuit",
+        "localization": "none"
+      },
+      "footprint": {
+        "shape": "circle",
+        "radius": 0.45
+      },
+      "limits": {
+        "max_speed": 0.5,
+        "max_accel": 0.5,
+        "max_decel": 1.0,
+        "max_yaw_rate": 1.5
+      },
+      "battery": {
+        "min_pct": 0,
+        "recharge_pct": 0,
+        "drain_pct_per_min_idle": 0,
+        "drain_pct_per_m": 0
+      },
+      "charging_required": false,
+      "map_ids": [
+        "isaac_warehouse"
+      ],
+      "layer": "ground",
+      "communication": {
+        "protocol": "ros2",
+        "namespace": ""
+      },
+      "priority": 5
+    }
+  ],
+  "robots": [
+    {
+      "id": "carter1",
+      "name": "Carter-1",
+      "fleet_id": "warehouse_fleet",
+      "manufacturer": "NVIDIA",
+      "model": "carter_v1",
+      "navigation": {
+        "map_id": "isaac_warehouse",
+        "namespace": "",
+        "frame": "map",
+        "base_frame": "base_link",
+        "odom_source": "odom",
+        "sensors": [
+          "lidar_2d"
+        ]
+      },
+      "physical": {
+        "payload_kg": 50,
+        "turning_radius": 0.0
+      },
+      "spawn": {
+        "waypoint_id": "elevator_lobby",
+        "battery_pct": 100
+      }
+    }
+  ]
+}

@@ -3,16 +3,17 @@
 # scripts/start.sh — launch the Nayantra stack
 #
 # Starts (in this order, in the background):
-#   1. RMF stub server      (port 8000)  — only if no real RMF backend
-#   2. MCP server           (port 7000)
-#   3. Agent API v2         (port 8080)  — includes WebSocket + dashboard
+#   1. Nayantra Core        (port 8000)  — control plane + operator UI
+#   2. MCP server           (port 7000)  — the LLM's tools
+#   3. Agent API v2         (port 8080)  — natural-language agent
 #
 # PIDs are written to runtime/pids/*.pid; logs to runtime/logs/*.log.
 # Use scripts/stop.sh to terminate all services cleanly.
 #
 # Usage:
 #   bash scripts/start.sh              # full stack
-#   bash scripts/start.sh --no-stub    # skip the RMF stub (use real RMF)
+#   bash scripts/start.sh --no-core    # core runs elsewhere (NAYANTRA_CORE_URL)
+#                                      # (--no-stub: deprecated alias)
 #   bash scripts/start.sh --v1         # use agent API v1 (no WebSocket)
 # =============================================================================
 
@@ -27,11 +28,11 @@ warn()  { echo -e "${YELLOW}[start]${NC} $*"; }
 error() { echo -e "${RED}[start]${NC} $*" >&2; }
 
 # ─── Argument parsing ────────────────────────────────────────────────────────
-START_STUB=1
+START_CORE=1
 API_MODULE="nayantra.agent.api_v2"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --no-stub) START_STUB=0 ;;
+        --no-core|--no-stub) START_CORE=0 ;;
         --v1)      API_MODULE="nayantra.agent.api" ;;
         -h|--help)
             sed -n '3,16p' "$0"; exit 0 ;;
@@ -96,10 +97,14 @@ wait_for_health() {
     return 1
 }
 
-# ─── 1. RMF stub server (optional) ───────────────────────────────────────────
-if [ "$START_STUB" -eq 1 ]; then
-    start_service "rmf-stub" "python docker/rmf_stub_server.py" 8000
-    wait_for_health "rmf-stub" "http://localhost:8000/health" || true
+# ─── 1. Nayantra Core ────────────────────────────────────────────────────────
+if [ "$START_CORE" -eq 1 ]; then
+    if [ ! -f web/dist/index.html ] && command -v npm >/dev/null; then
+        info "Building the operator UI (first run) ..."
+        npm --prefix web install --no-audit --no-fund >/dev/null && npm --prefix web run build >/dev/null
+    fi
+    start_service "core" "python -m nayantra.core.server" 8000
+    wait_for_health "core" "http://localhost:8000/api/v1/health" || true
 fi
 
 # ─── 2. MCP server ───────────────────────────────────────────────────────────
@@ -113,10 +118,10 @@ wait_for_health "agent-api" "http://localhost:8080/health" || true
 echo ""
 info "All services launched."
 echo ""
-echo "  Dashboard:    http://localhost:8080/"
-echo "  Agent API:    http://localhost:8080/docs"
+echo "  Operator UI:  http://localhost:8000/"
+echo "  Core API:     http://localhost:8000/docs"
 echo "  MCP Server:   http://localhost:7000/tools"
-echo "  WebSocket:    ws://localhost:8080/ws/fleet"
+echo "  Agent API:    http://localhost:8080/docs"
 echo ""
 echo "  Logs:   runtime/logs/*.log"
 echo "  Stop:   bash scripts/stop.sh"

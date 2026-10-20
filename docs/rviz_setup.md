@@ -23,8 +23,8 @@ robot enters the picture, switch the visualization to RViz.
 
 ## Prerequisites
 
-- **ROS 2 Humble** (or newer) sourced in the terminal you launch RViz from
-  - Ubuntu 22.04: `sudo apt install ros-humble-rviz2`
+- **ROS 2 Humble or Jazzy** sourced in the terminal you launch RViz from
+  - Ubuntu 22.04: `sudo apt install ros-humble-rviz2`; Ubuntu 24.04 (Jazzy): `sudo apt install ros-jazzy-rviz2`
   - Windows: run RViz inside a WSL2 Ubuntu environment (native ROS 2 on
     Windows works but is fragile; WSL2 is the path of least pain)
 - For real robots: a working **Nav2** stack publishing the standard topics
@@ -44,7 +44,7 @@ robot enters the picture, switch the visualization to RViz.
    machine on the same `ROS_DOMAIN_ID`):
 
    ```bash
-   source /opt/ros/humble/setup.bash
+   source /opt/ros/${ROS_DISTRO:-jazzy}/setup.bash   # or /opt/ros/humble/
    ros2 topic list      # confirm /tf, /map, /scan, /odom are visible
    rviz2 -d $(pwd)/docs/nayantra.rviz   # optional preset, see below
    ```
@@ -153,3 +153,84 @@ Three reasons:
    visualizer needs a constant WebSocket telemetry feed, which adds
    latency and a failure mode without changing what the operator can
    decide.
+
+## Path C — Workstation deployment (Isaac on the GPU box, RViz on the same box or a laptop)
+
+Run Isaac headless on a GPU workstation as a ROS 2 publisher, then visualise
+with RViz2 — either on the same host or on a separate viewer machine.
+
+### 1. Launch Isaac as a ROS 2 publisher
+
+[scripts/isaac_boot.py](../scripts/isaac_boot.py) runs Isaac **headless**, enables the
+ROS 2 bridge, loads the warehouse + Carter, and publishes `/clock`, `/tf`,
+`/odom` (and subscribes `/cmd_vel`). On the workstation:
+
+```bash
+source ~/isaacsim-env/bin/activate     # the venv from scripts/install_isaac_pip.sh
+export ROS_DOMAIN_ID=0                  # match the value on your viewer
+python scripts/isaac_boot.py
+```
+
+Wait for the green **"ISAAC IS PUBLISHING ROS 2"** banner.
+
+### 2. Install RViz on the viewer
+
+If the viewer is the workstation itself, you already have ROS 2 — skip to step 3.
+
+For a separate viewer (laptop, dev box), install ROS 2 + RViz via conda /
+RoboStack (no sudo, no apt — works on Windows, WSL2, Linux, macOS):
+
+```bash
+conda create -n ros2 python=3.11 -y
+conda activate ros2
+conda config --env --add channels conda-forge
+conda config --env --add channels robostack-staging
+conda install -y ros-humble-desktop ros-humble-rmw-cyclonedds-cpp
+```
+
+If the workstation and viewer are on different subnets (e.g. cross-VPN),
+configure CycloneDDS unicast so discovery actually reaches the workstation:
+
+```bash
+mkdir -p ~/ros2
+cat > ~/ros2/cyclonedds.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="any">
+    <General><Interfaces><NetworkInterface autodetermine="true"/></Interfaces></General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <Peers><Peer address="WORKSTATION_IP"/></Peers>
+    </Discovery>
+  </Domain>
+</CycloneDDS>
+EOF
+
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CYCLONEDDS_URI=file://$HOME/ros2/cyclonedds.xml
+export ROS_DOMAIN_ID=0
+```
+
+> Same-LAN viewers don't need this — DDS multicast works out of the box.
+
+### 3. Verify + open RViz
+
+```bash
+ros2 topic list           # expect /clock /tf /tf_static /odom ...
+ros2 topic echo /tf --once
+rviz2                      # Fixed Frame: world | Add: TF
+```
+
+The robot's TF frames appear and move as Nav2 / teleop drives it. Map, laser,
+and the robot mesh come online once Nav2 is wired in (next step).
+
+### 4. If DDS UDP won't cross your network — Zenoh fallback
+
+Discovery may succeed (topics list) but data hang if the network blocks DDS
+UDP. Bridge ROS 2 over a single TCP connection with `zenoh-bridge-ros2dds`:
+
+- workstation: run the bridge in router mode (TCP 7447).
+- viewer: run the bridge in client mode → `tcp/WORKSTATION_IP:7447`.
+
+This matches the repo's existing `nayantra/zenoh_bridge` design. Ask and I'll
+provide the exact bridge launchers.
