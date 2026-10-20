@@ -1,7 +1,7 @@
 {
   "name": "nayantra-web",
   "private": true,
-  "version": "2.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "Nayantra operator UI — multi-fleet robot operations center",
   "scripts": {

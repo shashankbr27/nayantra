@@ -98,7 +98,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Nayantra Agent API",
     description="LLM-powered robot navigation API",
-    version="1.0.0",
+    version="0.1.0",
     lifespan=lifespan,
 )
 

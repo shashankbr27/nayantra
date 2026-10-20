@@ -251,14 +251,14 @@ Or use the operator UI at **http://localhost:8000/**.
 
 | Check                | Command                                       | Expected                        |
 |----------------------|-----------------------------------------------|---------------------------------|
-| Nayantra Core        | `curl http://localhost:8000/api/v1/health`    | `{"status":"ok","version":"2.0.0",...}` |
+| Nayantra Core        | `curl http://localhost:8000/api/v1/health`    | `{"status":"ok","version":"0.1.0",...}` |
 | Operator UI          | open `http://localhost:8000/`                 | map with the warehouse demo      |
 | MCP server           | `curl http://localhost:7000/health`           | `{"status":"ok","tools":N}`     |
 | MCP tool list        | `curl http://localhost:7000/tools`            | JSON array of ~25 tools         |
 | Agent API            | `curl http://localhost:8080/health`           | `{"status":"ok"}`                |
 | Agent readiness      | `curl http://localhost:8080/readiness`        | All checks green                 |
 | Isaac Sim bridge     | `curl http://localhost:8211/health`           | `{"isaac_available":true,...}` |
-| Unit tests           | `pytest`                                      | 310 passed                       |
+| Unit tests           | `pytest`                                      | 315 passed                       |
 | UI build             | `cd web && npm ci && npm run build`           | typecheck + build succeed        |
 | Linter               | `ruff check nayantra tests scripts`           | no errors                        |
 

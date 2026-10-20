@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Nayantra MCP tool server",
     description="High-level, schema-validated robot-fleet operations for LLM agents",
-    version="2.0.0",
+    version="0.1.0",
     lifespan=lifespan,
 )
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])

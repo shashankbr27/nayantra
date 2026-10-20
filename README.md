@@ -249,7 +249,7 @@ nayantra/
 │   ├── .env.example
 │   └── tools.json          # Generated tool definitions
 ├── docker/                 # Dockerfile.core · .mcp · .agent · compose
-├── tests/                  # Pytest suite (310 tests; tests/core = platform)
+├── tests/                  # Pytest suite (315 tests; tests/core = platform)
 ├── docs/
 ├── scripts/
 └── pyproject.toml

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "nayantra"
-version         = "2.0.0"
+version         = "0.1.0"
 description     = "Nayantra — agentic operations platform for heterogeneous robot fleets: control plane, traffic coordination, operator UI, and LLM/MCP operator interface"
 readme          = "README.md"
 license         = { file = "LICENSE" }

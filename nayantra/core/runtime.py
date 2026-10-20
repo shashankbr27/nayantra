@@ -39,7 +39,7 @@ from nayantra.core.world import WorldRegistry
 logger = logging.getLogger("nayantra.core")
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
-VERSION = "2.0.0"
+VERSION = "0.1.0"
 
 
 def scenario_path(name: str) -> Path:
